@@ -1,10 +1,11 @@
 @echo off
 chcp 65001 > nul
-title KR 주식 모니터 - 거래대금 2000억↑ + 장대 양봉
+title 장대양봉 거래대금 모니터 (2000억↑ + 장대양봉)
 
 echo.
 echo  =====================================================
-echo   KR 주식 모니터  (거래대금 2000억 이상 + 장대 양봉)
+echo   장대양봉 거래대금 모니터
+echo   조건: 거래대금 2000억 이상 + 장대 양봉
 echo  =====================================================
 echo.
 
@@ -16,7 +17,16 @@ if not exist "%~dp0stock_monitor.py" (
     exit /b 1
 )
 
-:: pip 패키지 자동 설치
+:: 바탕화면 바로가기 자동 생성 (최초 1회)
+set "SHORTCUT=%USERPROFILE%\Desktop\장대양봉 거래대금 모니터.lnk"
+if not exist "%SHORTCUT%" (
+    echo  [바로가기] 바탕화면에 바로가기를 생성합니다...
+    powershell -Command "$s=(New-Object -COM WScript.Shell).CreateShortcut('%SHORTCUT%');$s.TargetPath='%~f0';$s.WorkingDirectory='%~dp0';$s.IconLocation='%SystemRoot%\System32\shell32.dll,162';$s.Description='장대양봉 거래대금 모니터';$s.Save()"
+    echo  [바로가기] 완료 - 다음부터는 바탕화면에서 바로 실행하세요.
+    echo.
+)
+
+:: pip 패키지 자동 설치 (최초 1회)
 echo  [1/2] 필요한 패키지를 확인합니다...
 pip show pykrx >nul 2>&1
 if errorlevel 1 (
