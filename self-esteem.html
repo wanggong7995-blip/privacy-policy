@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>마음돌봄 – 자존감 회복 워크북</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #3E38C8;
+      --primary-light: #6E56E6;
+      --bg: #f5f5f7;
+      --card: #ffffff;
+      --text: #1d1d1f;
+      --text-soft: #3a3a3c;
+      --text-mute: #8e8e93;
+      --accent-bg: #f0f0ff;
+      --border: #e5e5ea;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.75;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      background: linear-gradient(135deg, #3E38C8 0%, #6E56E6 100%);
+      color: #fff;
+      padding: 44px 24px 36px;
+      text-align: center;
+    }
+
+    header .app-icon {
+      display: inline-block;
+      width: 72px; height: 72px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 18px;
+      font-size: 40px;
+      line-height: 72px;
+      margin-bottom: 16px;
+    }
+
+    header h1 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+    header p  { font-size: 14px; opacity: 0.85; }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 28px 20px 100px;
+    }
+
+    /* ── 진행 현황 ── */
+    .progress-card {
+      background: linear-gradient(135deg, #f0f0ff 0%, #fdf0ff 100%);
+      border-radius: 16px;
+      padding: 22px 24px;
+      margin-bottom: 18px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+    }
+    .progress-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .progress-top .day-label { font-size: 20px; font-weight: 700; color: var(--primary); }
+    .progress-stats { display: flex; gap: 18px; }
+    .progress-stats .stat { text-align: center; }
+    .progress-stats .stat .num { font-size: 20px; font-weight: 700; color: var(--primary-light); display:block; }
+    .progress-stats .stat .cap { font-size: 12px; color: var(--text-mute); }
+    .bar {
+      height: 10px;
+      background: #e3e0ff;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .bar > span {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, #6E56E6, #3E38C8);
+      border-radius: 6px;
+      width: 0%;
+      transition: width .5s ease;
+    }
+    .bar-caption { font-size: 12px; color: var(--text-mute); margin-top: 8px; text-align:right; }
+
+    /* ── 카드 공통 ── */
+    section {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 24px 26px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    section h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    section h2 .icon {
+      width: 30px; height: 30px;
+      background: #eeeeff;
+      border-radius: 9px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .sub { font-size: 13px; color: var(--text-mute); font-weight: 400; margin-left: 2px; }
+
+    /* ── 오늘의 확언 ── */
+    .affirmation {
+      background: linear-gradient(135deg, #3E38C8 0%, #6E56E6 100%);
+      color: #fff;
+      border-radius: 16px;
+      padding: 30px 28px;
+      text-align: center;
+      margin-bottom: 16px;
+      box-shadow: 0 6px 20px rgba(62,56,200,0.25);
+    }
+    .affirmation .quote-mark { font-size: 34px; opacity: .4; line-height: 1; }
+    .affirmation p { font-size: 19px; font-weight: 600; line-height: 1.6; margin: 6px 0 14px; color:#fff; }
+    .affirmation .a-day { font-size: 13px; opacity: .75; }
+
+    /* ── 폼 요소 ── */
+    label.q { display:block; font-size: 15px; color: var(--text-soft); font-weight:600; margin-bottom: 8px; }
+    label.q .hint { display:block; font-weight:400; font-size:13px; color: var(--text-mute); margin-top:2px; }
+
+    textarea, input[type=text] {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-family: inherit;
+      color: var(--text);
+      background: #fafafd;
+      resize: vertical;
+      line-height: 1.6;
+    }
+    textarea:focus, input[type=text]:focus {
+      outline: none;
+      border-color: var(--primary-light);
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(110,86,230,0.12);
+    }
+    textarea { min-height: 78px; }
+    .field { margin-bottom: 18px; }
+    .field:last-child { margin-bottom: 0; }
+
+    .win-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+    .win-row .dot { width:22px; height:22px; border-radius:50%; background:#eeeeff; color:var(--primary); font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .win-row input { flex:1; }
+
+    /* ── 자존감 슬라이더 ── */
+    .mood-wrap { text-align:center; }
+    .mood-value { font-size: 40px; font-weight: 800; color: var(--primary); line-height:1; }
+    .mood-value small { font-size:18px; color: var(--text-mute); font-weight:600; }
+    .mood-face { font-size: 40px; margin: 6px 0 10px; }
+    input[type=range] {
+      -webkit-appearance:none; appearance:none;
+      width:100%; height:10px; border-radius:6px;
+      background: linear-gradient(90deg,#ffd3d3,#fff0c9,#c9f7d6);
+      outline:none; margin: 8px 0 6px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance:none; appearance:none;
+      width:26px; height:26px; border-radius:50%;
+      background:#fff; border:3px solid var(--primary-light);
+      box-shadow:0 2px 6px rgba(0,0,0,0.2); cursor:pointer;
+    }
+    input[type=range]::-moz-range-thumb {
+      width:26px; height:26px; border-radius:50%;
+      background:#fff; border:3px solid var(--primary-light);
+      box-shadow:0 2px 6px rgba(0,0,0,0.2); cursor:pointer;
+    }
+    .mood-scale { display:flex; justify-content:space-between; font-size:12px; color:var(--text-mute); }
+
+    /* ── 저장 버튼 ── */
+    .save-btn {
+      width: 100%;
+      background: linear-gradient(135deg, #3E38C8 0%, #6E56E6 100%);
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(62,56,200,0.28);
+      transition: transform .1s ease, box-shadow .2s ease;
+    }
+    .save-btn:active { transform: scale(0.98); }
+    .saved-flash {
+      text-align:center; color:#2a9d5c; font-weight:600; font-size:14px;
+      margin-top:12px; opacity:0; transition:opacity .3s ease; height:18px;
+    }
+    .saved-flash.show { opacity:1; }
+
+    /* ── 지난 기록 ── */
+    .history-empty { color: var(--text-mute); font-size:14px; text-align:center; padding: 10px 0; }
+    .hist-item {
+      border:1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: border-color .15s ease, background .15s ease;
+    }
+    .hist-item:hover { border-color: var(--primary-light); background:#fafafd; }
+    .hist-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+    .hist-date { font-size:14px; font-weight:600; color: var(--text-soft); }
+    .hist-score { font-size:13px; color: var(--primary); font-weight:600; background:#eeeeff; padding:2px 10px; border-radius:20px; }
+    .hist-preview { font-size:13px; color: var(--text-mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .hist-body { display:none; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); font-size:14px; color:var(--text-soft); }
+    .hist-body.open { display:block; }
+    .hist-body .row { margin-bottom:8px; }
+    .hist-body .row b { color: var(--primary); display:block; font-size:12px; margin-bottom:2px; }
+
+    .footer-note { text-align:center; font-size:12px; color:var(--text-mute); padding: 24px 20px 0; line-height:1.7; }
+
+    .link-btn {
+      background:none; border:none; color:var(--text-mute); font-size:13px;
+      text-decoration:underline; cursor:pointer; font-family:inherit;
+    }
+    .toolbar { display:flex; justify-content:center; gap:20px; margin-top:14px; }
+
+    @media (max-width:480px){
+      section { padding:20px 18px; }
+      header h1 { font-size:22px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="app-icon">🌱</div>
+  <h1>마음돌봄</h1>
+  <p>30일 자존감 회복 워크북</p>
+</header>
+
+<div class="container">
+
+  <!-- 진행 현황 -->
+  <div class="progress-card">
+    <div class="progress-top">
+      <span class="day-label" id="dayLabel">Day 1</span>
+      <div class="progress-stats">
+        <div class="stat"><span class="num" id="doneCount">0</span><span class="cap">완료한 날</span></div>
+        <div class="stat"><span class="num" id="streakCount">0</span><span class="cap">연속 기록</span></div>
+      </div>
+    </div>
+    <div class="bar"><span id="bar"></span></div>
+    <div class="bar-caption" id="barCaption">30일 여정을 시작해요</div>
+  </div>
+
+  <!-- 오늘의 확언 -->
+  <div class="affirmation">
+    <div class="quote-mark">&ldquo;</div>
+    <p id="affirmText">나는 있는 그대로 충분히 소중한 사람입니다.</p>
+    <div class="a-day" id="affirmDay">오늘의 확언</div>
+  </div>
+
+  <!-- 감정 체크인 -->
+  <section>
+    <h2><span class="icon">💗</span> 오늘의 마음 <span class="sub">지금 나의 자존감은?</span></h2>
+    <div class="mood-wrap">
+      <div class="mood-face" id="moodFace">🙂</div>
+      <div class="mood-value"><span id="moodVal">5</span><small> / 10</small></div>
+      <input type="range" id="mood" min="1" max="10" value="5" />
+      <div class="mood-scale"><span>많이 지침</span><span>편안함</span></div>
+    </div>
+  </section>
+
+  <!-- 오늘의 질문 -->
+  <section>
+    <h2><span class="icon">✍️</span> 오늘의 질문</h2>
+    <div class="field">
+      <label class="q" id="promptQ">오늘 나를 힘들게 한 생각은 무엇이었나요? 그 생각에게 다정하게 답한다면?</label>
+      <textarea id="answerPrompt" placeholder="떠오르는 대로 편하게 적어보세요."></textarea>
+    </div>
+  </section>
+
+  <!-- 오늘의 작은 성취 -->
+  <section>
+    <h2><span class="icon">✅</span> 오늘의 작은 성취 <span class="sub">아무리 사소해도 좋아요</span></h2>
+    <div class="win-row"><span class="dot">1</span><input type="text" id="win1" placeholder="예: 제때 일어났다" /></div>
+    <div class="win-row"><span class="dot">2</span><input type="text" id="win2" placeholder="예: 물을 챙겨 마셨다" /></div>
+    <div class="win-row"><span class="dot">3</span><input type="text" id="win3" placeholder="예: 힘든데도 하루를 버텼다" /></div>
+  </section>
+
+  <!-- 나에게 -->
+  <section>
+    <h2><span class="icon">🤍</span> 나에게 건네는 말</h2>
+    <div class="field">
+      <label class="q">오늘의 나를 칭찬한다면?<span class="hint">가까운 친구에게 하듯 다정하게</span></label>
+      <textarea id="praise" placeholder="예: 오늘도 애썼어. 넘어져도 다시 일어나려는 네가 대견해."></textarea>
+    </div>
+    <div class="field">
+      <label class="q">오늘 감사한 것 한 가지<span class="hint">작은 것이라도 괜찮아요</span></label>
+      <input type="text" id="gratitude" placeholder="예: 따뜻한 커피 한 잔" />
+    </div>
+  </section>
+
+  <button class="save-btn" id="saveBtn">오늘 기록 저장하기</button>
+  <div class="saved-flash" id="savedFlash">✓ 오늘의 기록이 저장되었어요</div>
+
+  <!-- 지난 기록 -->
+  <section style="margin-top:16px;">
+    <h2><span class="icon">📖</span> 지난 기록</h2>
+    <div id="history"><div class="history-empty">아직 기록이 없어요. 첫 번째 기록을 남겨보세요 🌿</div></div>
+    <div class="toolbar">
+      <button class="link-btn" id="exportBtn">기록 내보내기</button>
+      <button class="link-btn" id="resetBtn">모든 기록 삭제</button>
+    </div>
+  </section>
+
+  <div class="footer-note">
+    모든 기록은 이 기기의 브라우저 안에만 저장되며 외부로 전송되지 않습니다.<br/>
+    이 워크북은 자기돌봄을 돕기 위한 것이며 전문적인 심리 치료를 대신하지 않습니다.<br/>
+    많이 힘들 땐 정신건강 상담 전화 <b>1577-0199</b> 로 도움을 받을 수 있어요.
+  </div>
+
+</div>
+
+<script>
+  "use strict";
+
+  // ── 30일 콘텐츠 ──────────────────────────────────────────────
+  const AFFIRMATIONS = [
+    "나는 있는 그대로 충분히 소중한 사람입니다.",
+    "실수는 내가 성장하고 있다는 증거입니다.",
+    "나는 나의 감정을 있는 그대로 존중합니다.",
+    "완벽하지 않아도 나는 괜찮은 사람입니다.",
+    "나는 오늘 하루를 살아낸 것만으로 충분합니다.",
+    "나는 다른 사람의 기대가 아닌 나의 속도로 살아갑니다.",
+    "나는 사랑받을 자격이 있는 사람입니다.",
+    "나의 가치는 성과로 정해지지 않습니다.",
+    "나는 나를 친절하게 대할 자격이 있습니다.",
+    "나는 어제보다 조금 더 나를 이해하고 있습니다.",
+    "지금의 나로도 충분히 잘하고 있습니다.",
+    "나는 내 안의 좋은 면을 볼 줄 아는 사람입니다.",
+    "나는 힘든 순간에도 나를 포기하지 않습니다.",
+    "나는 거절해도 되는 사람입니다.",
+    "나의 존재만으로 이미 의미가 있습니다.",
+    "나는 과거의 나를 이해하고 용서합니다.",
+    "나는 내 감정을 표현해도 안전합니다.",
+    "나는 비교가 아닌 나만의 길을 걷습니다.",
+    "나는 쉬어갈 자격이 있는 사람입니다.",
+    "나는 나 자신의 가장 든든한 편입니다.",
+    "나는 실패해도 다시 시작할 수 있습니다.",
+    "나는 나의 필요를 소중히 여깁니다.",
+    "나는 충분히 노력하고 있는 사람입니다.",
+    "나는 나를 미워하지 않기로 선택합니다.",
+    "나는 오늘도 나에게 다정할 것입니다.",
+    "나는 남의 시선보다 내 마음을 먼저 살핍니다.",
+    "나는 나의 성장을 자랑스러워합니다.",
+    "나는 완성이 아니라 과정 속에 있는 사람입니다.",
+    "나는 내 삶의 주인공입니다.",
+    "나는 나를 믿고 앞으로 나아갑니다."
+  ];
+
+  const PROMPTS = [
+    "오늘 나를 힘들게 한 생각은 무엇이었나요? 그 생각에게 다정하게 답한다면?",
+    "최근에 스스로를 자랑스럽게 느꼈던 순간이 있나요?",
+    "나를 지치게 하는 '당연히 ~해야 해'라는 생각이 있나요? 정말 그래야만 할까요?",
+    "오늘 내 몸과 마음은 나에게 무엇을 필요로 한다고 말하고 있나요?",
+    "어릴 적의 나에게 지금 한마디 해준다면 무슨 말을 하고 싶나요?",
+    "나를 가장 잘 이해해주는 사람은 나에게 뭐라고 말해줄까요?",
+    "오늘 '못했다'고 느낀 일을, 조금 더 너그러운 시선으로 다시 본다면?",
+    "나의 어떤 점이 나를 나답게 만드나요?",
+    "요즘 나를 자꾸 깎아내리는 마음속 목소리는 뭐라고 하나요? 사실일까요?",
+    "누군가에게 도움을 준 순간을 떠올려봐요. 그때의 나는 어떤 사람이었나요?",
+    "오늘 하루 중 가장 편안했던 순간은 언제였나요?",
+    "내가 나에게 자주 하는 비난을, 친구에게라면 똑같이 말할 수 있을까요?",
+    "지금의 힘듦이 지나간 뒤의 나는 오늘의 나에게 뭐라고 말해줄까요?",
+    "거절하거나 경계를 지켜서 나를 지킨 경험이 있나요?",
+    "내가 가진 것 중 당연하게 여겨온 소중한 것은 무엇인가요?",
+    "과거의 실수 하나를 떠올려봐요. 그때 나는 최선을 다하지 않았을까요?",
+    "오늘 억눌렀던 감정이 있다면, 그 감정은 나에게 무엇을 알려주려 했을까요?",
+    "남과 비교하며 작아졌던 순간이 있나요? 나만이 가진 것은 무엇인가요?",
+    "아무것도 하지 않고 쉬었을 때 죄책감이 드나요? 쉼도 나에게 필요한 일 아닐까요?",
+    "내가 나의 편이 되어준 순간을 하나 떠올려볼까요?",
+    "다시 도전하고 싶은 일이 있나요? 첫걸음은 무엇일까요?",
+    "요즘 내가 자꾸 미뤄둔 나의 필요는 무엇인가요?",
+    "오늘 내가 기울인 노력 중 스스로 인정해주고 싶은 것은?",
+    "나를 미워하게 만든 생각의 뿌리는 어디서 왔을까요?",
+    "내일의 나에게 미리 건네고 싶은 다정한 말이 있나요?",
+    "타인의 시선 때문에 하지 못한 일이 있나요? 내 마음은 무엇을 원하나요?",
+    "지난 한 달, 내가 조금이라도 나아진 부분은 무엇인가요?",
+    "지금 '완성되지 않은' 나의 모습 중 오히려 사랑스러운 점은?",
+    "내 삶에서 내가 스스로 선택하고 만들어낸 것은 무엇인가요?",
+    "30일 동안의 나에게, 그리고 앞으로의 나에게 어떤 말을 남기고 싶나요?"
+  ];
+
+  const KEY = "maeumdolbom.entries.v1";
+  const START_KEY = "maeumdolbom.start.v1";
+
+  // ── 유틸 ──
+  const $ = (id) => document.getElementById(id);
+  function todayStr(){
+    const d = new Date();
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+  function loadEntries(){ try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e){ return {}; } }
+  function saveEntries(o){ localStorage.setItem(KEY, JSON.stringify(o)); }
+  function getStart(){
+    let s = localStorage.getItem(START_KEY);
+    if(!s){ s = todayStr(); localStorage.setItem(START_KEY, s); }
+    return s;
+  }
+  function daysBetween(a,b){
+    const da = new Date(a+"T00:00:00"), db = new Date(b+"T00:00:00");
+    return Math.round((db-da)/86400000);
+  }
+  const MOOD_FACES = ["😞","😔","😕","😐","🙂","🙂","😊","😄","😄","🤗"];
+
+  // ── 오늘 인덱스(day number 1~30, 순환) ──
+  const start = getStart();
+  const dayIndex = ((daysBetween(start, todayStr()) % 30) + 30) % 30; // 0-based
+  const dayNum = dayIndex + 1;
+
+  // ── 오늘 콘텐츠 렌더 ──
+  $("affirmText").textContent = AFFIRMATIONS[dayIndex];
+  $("affirmDay").textContent = "Day " + dayNum + " · 오늘의 확언";
+  $("promptQ").textContent = PROMPTS[dayIndex];
+  $("dayLabel").textContent = "Day " + dayNum;
+
+  // ── 무드 슬라이더 ──
+  const mood = $("mood");
+  function renderMood(){
+    const v = +mood.value;
+    $("moodVal").textContent = v;
+    $("moodFace").textContent = MOOD_FACES[v-1];
+  }
+  mood.addEventListener("input", renderMood);
+
+  // ── 기존 오늘 기록 불러오기 ──
+  function fillToday(){
+    const entries = loadEntries();
+    const e = entries[todayStr()];
+    if(!e) return;
+    mood.value = e.mood ?? 5;
+    $("answerPrompt").value = e.answer || "";
+    $("win1").value = (e.wins && e.wins[0]) || "";
+    $("win2").value = (e.wins && e.wins[1]) || "";
+    $("win3").value = (e.wins && e.wins[2]) || "";
+    $("praise").value = e.praise || "";
+    $("gratitude").value = e.gratitude || "";
+    renderMood();
+  }
+
+  // ── 진행 현황 ──
+  function computeStreak(entries){
+    let streak = 0;
+    let d = new Date(todayStr()+"T00:00:00");
+    // 오늘 기록이 없으면 어제부터 세기
+    const fmt = (dt)=> dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0");
+    if(!entries[fmt(d)]) d.setDate(d.getDate()-1);
+    while(entries[fmt(d)]){ streak++; d.setDate(d.getDate()-1); }
+    return streak;
+  }
+  function renderProgress(){
+    const entries = loadEntries();
+    const keys = Object.keys(entries);
+    const done = keys.length;
+    $("doneCount").textContent = done;
+    $("streakCount").textContent = computeStreak(entries);
+    const pct = Math.min(100, Math.round(done/30*100));
+    $("bar").style.width = pct + "%";
+    $("barCaption").textContent = done === 0 ? "30일 여정을 시작해요"
+      : (done >= 30 ? "30일 완주! 정말 대단해요 🎉" : done + "일 기록 완료 · 목표까지 " + (30-done) + "일");
+  }
+
+  // ── 저장 ──
+  function collect(){
+    return {
+      day: dayNum,
+      mood: +mood.value,
+      answer: $("answerPrompt").value.trim(),
+      wins: [$("win1").value.trim(), $("win2").value.trim(), $("win3").value.trim()],
+      praise: $("praise").value.trim(),
+      gratitude: $("gratitude").value.trim(),
+      savedAt: new Date().toISOString()
+    };
+  }
+  $("saveBtn").addEventListener("click", ()=>{
+    const entries = loadEntries();
+    entries[todayStr()] = collect();
+    saveEntries(entries);
+    const flash = $("savedFlash");
+    flash.classList.add("show");
+    setTimeout(()=>flash.classList.remove("show"), 2200);
+    renderProgress();
+    renderHistory();
+  });
+
+  // ── 지난 기록 ──
+  function renderHistory(){
+    const entries = loadEntries();
+    const keys = Object.keys(entries).sort().reverse();
+    const box = $("history");
+    if(keys.length === 0){
+      box.innerHTML = '<div class="history-empty">아직 기록이 없어요. 첫 번째 기록을 남겨보세요 🌿</div>';
+      return;
+    }
+    box.innerHTML = keys.map(k=>{
+      const e = entries[k];
+      const preview = e.answer || e.praise || (e.wins||[]).filter(Boolean).join(", ") || "기록 보기";
+      const winsHtml = (e.wins||[]).filter(Boolean).map(w=>"· "+esc(w)).join("<br/>") || "-";
+      return '<div class="hist-item" data-k="'+k+'">'
+        + '<div class="hist-head"><span class="hist-date">'+fmtKo(k)+' · Day '+(e.day||"-")+'</span>'
+        + '<span class="hist-score">'+(MOOD_FACES[(e.mood||5)-1])+' '+(e.mood||"-")+'/10</span></div>'
+        + '<div class="hist-preview">'+esc(preview)+'</div>'
+        + '<div class="hist-body">'
+        +   (e.answer? '<div class="row"><b>오늘의 질문</b>'+esc(e.answer)+'</div>':'')
+        +   '<div class="row"><b>작은 성취</b>'+winsHtml+'</div>'
+        +   (e.praise? '<div class="row"><b>나에게 건넨 말</b>'+esc(e.praise)+'</div>':'')
+        +   (e.gratitude? '<div class="row"><b>감사한 것</b>'+esc(e.gratitude)+'</div>':'')
+        + '</div></div>';
+    }).join("");
+    box.querySelectorAll(".hist-item").forEach(el=>{
+      el.addEventListener("click", ()=> el.querySelector(".hist-body").classList.toggle("open"));
+    });
+  }
+  function fmtKo(k){
+    const [y,m,d] = k.split("-");
+    return y+"년 "+(+m)+"월 "+(+d)+"일";
+  }
+  function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+  // ── 내보내기 / 삭제 ──
+  $("exportBtn").addEventListener("click", ()=>{
+    const entries = loadEntries();
+    if(Object.keys(entries).length===0){ alert("내보낼 기록이 없어요."); return; }
+    let out = "🌱 마음돌봄 자존감 회복 워크북 기록\n\n";
+    Object.keys(entries).sort().forEach(k=>{
+      const e = entries[k];
+      out += "── "+fmtKo(k)+" (Day "+(e.day||"-")+") · 자존감 "+(e.mood||"-")+"/10 ──\n";
+      if(e.answer) out += "질문: "+e.answer+"\n";
+      const w = (e.wins||[]).filter(Boolean);
+      if(w.length) out += "작은 성취: "+w.join(", ")+"\n";
+      if(e.praise) out += "나에게: "+e.praise+"\n";
+      if(e.gratitude) out += "감사: "+e.gratitude+"\n";
+      out += "\n";
+    });
+    const blob = new Blob([out], {type:"text/plain;charset=utf-8"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "마음돌봄_기록.txt";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+  $("resetBtn").addEventListener("click", ()=>{
+    if(confirm("모든 기록을 삭제할까요? 되돌릴 수 없어요.")){
+      localStorage.removeItem(KEY);
+      renderProgress();
+      renderHistory();
+    }
+  });
+
+  // ── 초기화 ──
+  fillToday();
+  renderMood();
+  renderProgress();
+  renderHistory();
+</script>
+
+</body>
+</html>
