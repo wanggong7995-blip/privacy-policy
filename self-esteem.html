@@ -2,8 +2,21 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>마음돌봄 – 자존감 회복 워크북</title>
+
+  <!-- PWA / 홈 화면 추가 -->
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#3E38C8" />
+  <meta name="description" content="매일 5분, 30일 자존감 회복 워크북. 모든 기록은 내 기기에만 저장됩니다." />
+  <link rel="icon" href="./favicon-64.png" sizes="64x64" type="image/png" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+  <!-- iOS 홈 화면 실행 시 전체화면(주소창 숨김) -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="마음돌봄" />
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -242,6 +255,32 @@
       section { padding:20px 18px; }
       header h1 { font-size:22px; }
     }
+
+    /* iOS 노치 안전영역 */
+    header { padding-top: calc(44px + env(safe-area-inset-top)); }
+    .container { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
+
+    /* 홈 화면 추가 안내 */
+    .install-bar {
+      display:none;
+      align-items:center; gap:12px;
+      background:#fff; border:1px solid #e0deff;
+      border-radius:14px; padding:14px 16px; margin-bottom:16px;
+      box-shadow:0 2px 12px rgba(0,0,0,0.06);
+    }
+    .install-bar.show { display:flex; }
+    .install-bar .ib-icon { width:40px; height:40px; border-radius:11px; flex-shrink:0; }
+    .install-bar .ib-text { flex:1; font-size:13.5px; color:var(--text-soft); line-height:1.5; }
+    .install-bar .ib-text b { color:var(--primary); }
+    .install-bar .ib-btn {
+      background:linear-gradient(135deg,#3E38C8,#6E56E6); color:#fff; border:none;
+      border-radius:10px; padding:9px 14px; font-size:13px; font-weight:700;
+      font-family:inherit; cursor:pointer; flex-shrink:0;
+    }
+    .install-bar .ib-close {
+      background:none; border:none; color:var(--text-mute); font-size:18px;
+      cursor:pointer; line-height:1; padding:0 2px; flex-shrink:0;
+    }
   </style>
 </head>
 <body>
@@ -253,6 +292,14 @@
 </header>
 
 <div class="container">
+
+  <!-- 홈 화면에 추가 안내 -->
+  <div class="install-bar" id="installBar">
+    <img class="ib-icon" src="./icon-192.png" alt="" />
+    <div class="ib-text" id="installText">홈 화면에 추가하면 <b>앱처럼</b> 바로 열 수 있어요.</div>
+    <button class="ib-btn" id="installBtn">추가</button>
+    <button class="ib-close" id="installClose" aria-label="닫기">&times;</button>
+  </div>
 
   <!-- 진행 현황 -->
   <div class="progress-card">
@@ -571,6 +618,47 @@
       renderHistory();
     }
   });
+
+  // ── PWA: 서비스워커 등록 ──
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(()=>{});
+    });
+  }
+
+  // ── PWA: 홈 화면에 추가 안내 ──
+  (function(){
+    const bar = $("installBar"), btn = $("installBtn"), closeBtn = $("installClose"), txt = $("installText");
+    const DISMISS = "maeumdolbom.installDismiss.v1";
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    let deferred = null;
+
+    if (isStandalone || localStorage.getItem(DISMISS)) return; // 이미 설치했거나 닫음
+
+    closeBtn.addEventListener("click", ()=>{ bar.classList.remove("show"); localStorage.setItem(DISMISS,"1"); });
+
+    // 안드로이드/데스크톱 Chrome 계열: 네이티브 설치 프롬프트
+    window.addEventListener("beforeinstallprompt", (e)=>{
+      e.preventDefault();
+      deferred = e;
+      bar.classList.add("show");
+    });
+    btn.addEventListener("click", async ()=>{
+      if (!deferred) return;
+      deferred.prompt();
+      await deferred.userChoice;
+      deferred = null;
+      bar.classList.remove("show");
+    });
+
+    // iOS Safari: 네이티브 프롬프트가 없으므로 방법을 안내
+    if (isIOS) {
+      txt.innerHTML = '홈 화면에 추가: 하단 <b>공유</b> 버튼 → <b>‘홈 화면에 추가’</b>';
+      btn.style.display = "none";
+      bar.classList.add("show");
+    }
+  })();
 
   // ── 초기화 ──
   fillToday();
