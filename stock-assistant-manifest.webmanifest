@@ -1,0 +1,17 @@
+{
+  "name": "주식투자 AI 비서",
+  "short_name": "주식AI비서",
+  "description": "관심종목 추적, 매수/매도 시그널, 뉴스 요약, AI 질의응답. 모든 데이터는 내 기기에만 저장됩니다.",
+  "lang": "ko",
+  "start_url": "./stock-assistant.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f5f7",
+  "theme_color": "#3E38C8",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
