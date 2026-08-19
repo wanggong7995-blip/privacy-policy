@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#1b1f4b" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>🐾 동물 대결 챔피언</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --ink: #22224a;
+    --card: #ffffff;
+    --shadow: 0 6px 0 rgba(0,0,0,0.12);
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    color: var(--ink);
+    background: #1b1f4b;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ===== 무대(스테이지 배경) ===== */
+  #stage {
+    position: fixed; inset: 0;
+    background: linear-gradient(160deg, #6dd5ed 0%, #2193b0 100%);
+    transition: background 600ms ease;
+  }
+
+  #app {
+    position: relative;
+    height: 100%;
+    max-width: 560px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    padding: max(12px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+
+  .screen { display: none; flex-direction: column; gap: 14px; flex: 1; }
+  .screen.on { display: flex; animation: pop 320ms ease; }
+
+  @keyframes pop { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+  /* ===== 공통 요소 ===== */
+  .panel {
+    background: rgba(255,255,255,0.94);
+    border-radius: 22px;
+    padding: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  }
+
+  .btn {
+    border: none;
+    border-radius: 18px;
+    background: #ffd23f;
+    color: #4a3200;
+    font-size: 21px;
+    font-weight: 800;
+    padding: 16px 18px;
+    min-height: 62px;
+    width: 100%;
+    box-shadow: 0 5px 0 #d9a900;
+    cursor: pointer;
+    transition: transform 90ms ease, box-shadow 90ms ease, filter 150ms ease;
+    font-family: inherit;
+  }
+  .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #d9a900; }
+  .btn.blue   { background: #64b5ff; color: #08315c; box-shadow: 0 5px 0 #2b7fd0; }
+  .btn.blue:active { box-shadow: 0 1px 0 #2b7fd0; }
+  .btn.green  { background: #7ede8a; color: #14431d; box-shadow: 0 5px 0 #46b256; }
+  .btn.green:active { box-shadow: 0 1px 0 #46b256; }
+  .btn.pink   { background: #ff8fb1; color: #5c0d26; box-shadow: 0 5px 0 #de5b83; }
+  .btn.pink:active { box-shadow: 0 1px 0 #de5b83; }
+  .btn:disabled { filter: grayscale(0.7) opacity(0.55); cursor: default; }
+
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+
+  /* ===== 홈 화면 ===== */
+  .title-wrap { text-align: center; color: #fff; text-shadow: 0 4px 0 rgba(0,0,0,0.25); padding-top: 12px; }
+  .title-wrap .big { font-size: 40px; font-weight: 900; letter-spacing: -1px; line-height: 1.2; }
+  .title-wrap .sub { font-size: 16px; margin-top: 8px; opacity: 0.95; font-weight: 700; }
+  .title-emojis { font-size: 46px; letter-spacing: 4px; margin-bottom: 6px; }
+  .title-emojis span { display: inline-block; animation: bob 1.6s ease-in-out infinite; }
+  .title-emojis span:nth-child(2) { animation-delay: .2s; }
+  .title-emojis span:nth-child(3) { animation-delay: .4s; }
+  .title-emojis span:nth-child(4) { animation-delay: .6s; }
+  @keyframes bob { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-10px) } }
+
+  .name-box { display: flex; align-items: center; gap: 10px; justify-content: center; }
+  .name-box label { font-size: 16px; font-weight: 800; }
+  .name-box input {
+    font-family: inherit; font-size: 19px; font-weight: 800; text-align: center;
+    width: 130px; padding: 10px; border-radius: 14px; border: 3px solid #ffd23f;
+    color: var(--ink); background: #fffdf3;
+  }
+
+  .toggles { display: flex; gap: 8px; }
+  .toggle {
+    flex: 1; border: none; border-radius: 16px; padding: 12px 8px; font-size: 15px; font-weight: 800;
+    font-family: inherit; background: #e9e9f5; color: #6a6a8a; cursor: pointer;
+  }
+  .toggle.on { background: #7ede8a; color: #14431d; }
+
+  /* ===== 동물 고르기 ===== */
+  .sect-title { text-align: center; color: #fff; font-size: 24px; font-weight: 900; text-shadow: 0 3px 0 rgba(0,0,0,0.25); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+  .acard {
+    background: var(--card); border-radius: 18px; padding: 10px 6px 8px; text-align: center;
+    box-shadow: var(--shadow); cursor: pointer; border: 4px solid transparent;
+    transition: transform 120ms ease, border-color 120ms ease;
+  }
+  .acard:active { transform: scale(0.94); }
+  .acard.sel { border-color: #ffd23f; transform: translateY(-4px) scale(1.03); }
+  .acard .face { font-size: 40px; line-height: 1.1; }
+  .acard .nm { font-size: 15px; font-weight: 900; margin-top: 2px; }
+  .acard .st { font-size: 11px; color: #7a7a9a; font-weight: 700; margin-top: 3px; line-height: 1.5; }
+  .acard.locked { filter: grayscale(1) opacity(0.55); }
+
+  .pick-bottom {
+    position: sticky; bottom: 0;
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 10px 0 4px;
+    background: linear-gradient(180deg, rgba(59,47,143,0) 0%, rgba(59,47,143,0.85) 26%, rgba(59,47,143,0.95) 100%);
+    border-radius: 20px;
+  }
+
+  /* ===== 배틀 ===== */
+  .stage-tag {
+    align-self: center; background: rgba(0,0,0,0.35); color: #fff; font-weight: 800; font-size: 15px;
+    padding: 6px 16px; border-radius: 999px;
+  }
+
+  .fighter { position: relative; background: rgba(255,255,255,0.94); border-radius: 20px; padding: 10px 14px; box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
+  .fighter .top { display: flex; align-items: center; gap: 10px; }
+  .fighter .face { font-size: 54px; transition: transform 180ms ease; }
+  .fighter .info { flex: 1; min-width: 0; }
+  .fighter .nm { font-size: 17px; font-weight: 900; display: flex; justify-content: space-between; align-items: baseline; }
+  .fighter .nm .hpnum { font-size: 14px; color: #6a6a8a; font-weight: 800; }
+
+  .bar { height: 16px; background: #e6e6f0; border-radius: 999px; overflow: hidden; margin-top: 5px; }
+  .bar > i { display: block; height: 100%; width: 100%; border-radius: 999px; background: linear-gradient(90deg,#59e08a,#2fc46a); transition: width 420ms ease, background 300ms ease; }
+  .bar.mid > i { background: linear-gradient(90deg,#ffd75e,#ffb100); }
+  .bar.low > i { background: linear-gradient(90deg,#ff8a8a,#ff4d4d); }
+
+  .gauge { height: 12px; background: #e6e6f0; border-radius: 999px; overflow: hidden; margin-top: 6px; }
+  .gauge > i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg,#8fd0ff,#7a5cff); transition: width 350ms ease; }
+  .gauge-label { font-size: 12px; font-weight: 800; color: #6a6a8a; margin-top: 4px; }
+
+  .hitting { animation: hitshake 380ms ease; }
+  @keyframes hitshake {
+    0%,100% { transform: translateX(0) }
+    20% { transform: translateX(-9px) }
+    40% { transform: translateX(8px) }
+    60% { transform: translateX(-6px) }
+    80% { transform: translateX(4px) }
+  }
+  .flash { animation: flash 380ms ease; }
+  @keyframes flash { 0%,100% { filter: none } 40% { filter: brightness(1.9) saturate(2) drop-shadow(0 0 10px #ff5b5b) } }
+  .lunge-down { animation: lungeDown 420ms ease; }
+  @keyframes lungeDown { 0%,100% { transform: translateY(0) } 45% { transform: translateY(22px) scale(1.18) } }
+  .lunge-up { animation: lungeUp 420ms ease; }
+  @keyframes lungeUp { 0%,100% { transform: translateY(0) } 45% { transform: translateY(-22px) scale(1.18) } }
+  .dodgemove { animation: dodgemove 520ms ease; }
+  @keyframes dodgemove {
+    0% { transform: translateX(0) }
+    30% { transform: translateX(-26px) rotate(-14deg) }
+    65% { transform: translateX(20px) rotate(10deg) }
+    100% { transform: translateX(0) }
+  }
+  .charge { animation: charge 700ms ease; }
+  @keyframes charge {
+    0% { transform: scale(1) } 30% { transform: scale(1.3) rotate(-8deg) }
+    60% { transform: scale(1.3) rotate(8deg) } 100% { transform: scale(1) }
+  }
+
+  .float {
+    position: absolute; right: 18px; top: 6px; font-size: 30px; font-weight: 900;
+    color: #ff3b3b; text-shadow: 0 3px 0 #fff, 0 0 12px rgba(255,255,255,0.9);
+    animation: floatUp 950ms ease forwards; pointer-events: none;
+  }
+  .float.heal { color: #22b455; }
+  @keyframes floatUp { 0% { opacity: 0; transform: translateY(10px) scale(0.6) } 25% { opacity: 1; transform: translateY(-6px) scale(1.25) } 100% { opacity: 0; transform: translateY(-52px) scale(1) } }
+
+  .msgbox {
+    background: rgba(0,0,0,0.5); color: #fff; border-radius: 18px; padding: 14px;
+    font-size: 19px; font-weight: 800; text-align: center; min-height: 76px;
+    display: flex; align-items: center; justify-content: center; line-height: 1.45;
+  }
+
+  .vs-line { text-align: center; font-size: 22px; font-weight: 900; color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,0.3); }
+
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .actions .btn { font-size: 19px; min-height: 68px; }
+  .actions .wide { grid-column: 1 / -1; }
+
+  /* ===== 결과 ===== */
+  .result-face { font-size: 92px; text-align: center; animation: bob 1.4s ease-in-out infinite; }
+  .result-title { text-align: center; font-size: 32px; font-weight: 900; color: #fff; text-shadow: 0 4px 0 rgba(0,0,0,0.25); }
+  .result-desc { text-align: center; font-size: 18px; font-weight: 700; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,0.25); line-height: 1.6; }
+  .stars { text-align: center; font-size: 34px; letter-spacing: 6px; }
+
+  .ladder { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; }
+  .ladder .step {
+    width: 46px; height: 46px; border-radius: 14px; background: rgba(255,255,255,0.25);
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+  }
+  .ladder .step.done { background: #7ede8a; }
+  .ladder .step.now { background: #ffd23f; animation: bob 1.2s ease-in-out infinite; }
+
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+
+  .dex-count { text-align: center; color: #fff; font-weight: 800; font-size: 16px; text-shadow: 0 2px 0 rgba(0,0,0,0.25); }
+
+  .tip { text-align: center; font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.9); text-shadow: 0 2px 0 rgba(0,0,0,0.2); }
+
+  @media (max-height: 700px) {
+    .fighter .face { font-size: 38px; }
+    .msgbox { min-height: 62px; font-size: 17px; }
+    .actions .btn { min-height: 60px; font-size: 18px; }
+    .title-wrap .big { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<canvas id="confetti"></canvas>
+
+<div id="app">
+
+  <!-- ============ 홈 ============ -->
+  <section id="s-home" class="screen on">
+    <div class="title-wrap">
+      <div class="title-emojis"><span>🦁</span><span>⚡</span><span>🦈</span><span>🏆</span></div>
+      <div class="big">동물 대결<br>챔피언</div>
+      <div class="sub" id="home-hello">동현이의 동물을 골라 대결해요!</div>
+    </div>
+
+    <div class="panel" style="display:flex; flex-direction:column; gap:12px;">
+      <div class="name-box">
+        <label for="playerName">내 이름</label>
+        <input id="playerName" maxlength="6" value="동현" />
+      </div>
+      <div class="toggles">
+        <button class="toggle on" id="t-sound">🔊 소리 켬</button>
+        <button class="toggle on" id="t-voice">🗣️ 읽어줌</button>
+      </div>
+    </div>
+
+    <button class="btn" id="btn-start">🎮 대결 시작!</button>
+    <div class="row">
+      <button class="btn blue" id="btn-dex">📖 동물 도감</button>
+      <button class="btn green" id="btn-how">❓ 하는 법</button>
+    </div>
+    <div class="tip" id="home-record">챔피언 0번 · 도감 0마리</div>
+  </section>
+
+  <!-- ============ 동물 고르기 ============ -->
+  <section id="s-pick" class="screen">
+    <div class="sect-title">🐾 내 동물을 골라요</div>
+    <div class="grid" id="pick-grid"></div>
+    <div class="pick-bottom">
+      <div class="panel" id="pick-detail" style="text-align:center; font-weight:800;">
+        동물을 눌러서 골라보세요!
+      </div>
+      <button class="btn" id="btn-go" disabled>이 동물로 대결! 💥</button>
+      <button class="btn blue" id="btn-pick-back">🏠 처음으로</button>
+    </div>
+  </section>
+
+  <!-- ============ 배틀 ============ -->
+  <section id="s-battle" class="screen">
+    <div class="stage-tag" id="stage-tag">🌳 1단계 · 초록 숲</div>
+
+    <div class="fighter" id="f-foe">
+      <div class="top">
+        <div class="face" id="foe-face">🐺</div>
+        <div class="info">
+          <div class="nm"><span id="foe-name">늑대</span><span class="hpnum" id="foe-hp">100 / 100</span></div>
+          <div class="bar" id="foe-bar"><i></i></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="vs-line">⚔️ 대결 중! ⚔️</div>
+
+    <div class="fighter" id="f-me">
+      <div class="top">
+        <div class="face" id="me-face">🦁</div>
+        <div class="info">
+          <div class="nm"><span id="me-name">사자</span><span class="hpnum" id="me-hp">100 / 100</span></div>
+          <div class="bar" id="me-bar"><i></i></div>
+          <div class="gauge" id="me-gauge"><i></i></div>
+          <div class="gauge-label" id="gauge-label">필살기 준비 중… 0%</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:1"></div>
+
+    <div class="msgbox" id="msg">준비!</div>
+
+    <div style="flex:1"></div>
+
+    <div class="actions" id="actions">
+      <button class="btn" data-act="attack">👊 공격!</button>
+      <button class="btn blue" data-act="guard">🛡️ 방어!</button>
+      <button class="btn pink" data-act="special">💥 필살기</button>
+      <button class="btn green" data-act="snack">🍎 간식 3</button>
+    </div>
+  </section>
+
+  <!-- ============ 결과 ============ -->
+  <section id="s-result" class="screen">
+    <div class="result-face" id="r-face">🏆</div>
+    <div class="result-title" id="r-title">이겼다!</div>
+    <div class="stars" id="r-stars">⭐⭐⭐</div>
+    <div class="result-desc" id="r-desc"></div>
+    <div class="ladder" id="r-ladder"></div>
+    <div style="flex:1"></div>
+    <button class="btn" id="r-main">다음 단계로 ▶</button>
+    <button class="btn blue" id="r-home">🏠 처음으로</button>
+  </section>
+
+  <!-- ============ 도감 ============ -->
+  <section id="s-dex" class="screen">
+    <div class="sect-title">📖 동물 도감</div>
+    <div class="dex-count" id="dex-count"></div>
+    <div class="grid" id="dex-grid"></div>
+    <div style="flex:1"></div>
+    <button class="btn blue" id="dex-back">🏠 처음으로</button>
+  </section>
+
+  <!-- ============ 하는 법 ============ -->
+  <section id="s-how" class="screen">
+    <div class="sect-title">❓ 하는 법</div>
+    <div class="panel" style="font-size:17px; font-weight:700; line-height:1.9;">
+      1️⃣ 좋아하는 동물을 골라요.<br>
+      2️⃣ <b>👊 공격</b> 을 누르면 상대를 공격해요.<br>
+      3️⃣ <b>🛡️ 방어</b> 를 하면 아픈 게 반으로 줄어요.<br>
+      4️⃣ 파란 막대가 가득 차면 <b>💥 필살기</b>!<br>
+      5️⃣ 힘들면 <b>🍎 간식</b> 을 먹어요. (한 판에 3번)<br>
+      6️⃣ 🌀 빠른 동물은 공격을 <b>휙 피해요</b>!<br>
+      7️⃣ 5마리를 모두 이기면 <b>🏆 챔피언</b>!<br><br>
+      🌟 져도 괜찮아요. 다시 하면 돼요!
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn blue" id="how-back">🏠 처음으로</button>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* =========================================================
+     동물 데이터 — 6살이 알기 쉬운 동물들
+     ========================================================= */
+  var ANIMALS = [
+    { id: "lion",     name: "사자",     emoji: "🦁", hp: 105, atk: 14, spd: 7,  skill: "백수의 포효" },
+    { id: "tiger",    name: "호랑이",   emoji: "🐯", hp: 100, atk: 16, spd: 8,  skill: "번개 발톱" },
+    { id: "elephant", name: "코끼리",   emoji: "🐘", hp: 130, atk: 11, spd: 4,  skill: "코 태풍" },
+    { id: "shark",    name: "상어",     emoji: "🦈", hp: 100, atk: 15, spd: 7,  skill: "회오리 물살" },
+    { id: "croc",     name: "악어",     emoji: "🐊", hp: 115, atk: 13, spd: 5,  skill: "꽉 물기" },
+    { id: "eagle",    name: "독수리",   emoji: "🦅", hp: 88,  atk: 15, spd: 10, skill: "하늘 급강하" },
+    { id: "bear",     name: "곰",       emoji: "🐻", hp: 122, atk: 14, spd: 5,  skill: "곰돌이 펀치" },
+    { id: "rhino",    name: "코뿔소",   emoji: "🦏", hp: 125, atk: 13, spd: 6,  skill: "돌진 뿔치기" },
+    { id: "wolf",     name: "늑대",     emoji: "🐺", hp: 96,  atk: 13, spd: 9,  skill: "달빛 울음" },
+    { id: "gorilla",  name: "고릴라",   emoji: "🦍", hp: 118, atk: 15, spd: 6,  skill: "가슴 북 쿵쿵" },
+    { id: "trex",     name: "티라노",   emoji: "🦖", hp: 120, atk: 17, spd: 6,  skill: "공룡 대왕 물기" },
+    { id: "whale",    name: "고래",     emoji: "🐋", hp: 140, atk: 12, spd: 4,  skill: "물기둥 분수" },
+    { id: "polar",    name: "북극곰",   emoji: "🐻‍❄️", hp: 128, atk: 14, spd: 5, skill: "눈보라 펀치" },
+    { id: "dragon",   name: "드래곤",   emoji: "🐉", hp: 172, atk: 16, spd: 8,  skill: "불꽃 브레스" }
+  ];
+
+  // 고를 수 있는 동물 (드래곤은 마지막 보스 전용)
+  var PICKABLE = ANIMALS.filter(function (a) { return a.id !== "dragon"; });
+
+  function byId(id) {
+    for (var i = 0; i < ANIMALS.length; i++) if (ANIMALS[i].id === id) return ANIMALS[i];
+    return ANIMALS[0];
+  }
+
+  /* =========================================================
+     스테이지 — 5단계 모험
+     ========================================================= */
+  var STAGES = [
+    { name: "초록 숲",   emoji: "🌳", foe: "wolf",   bg: "linear-gradient(160deg,#8fd98f 0%,#2e8b57 100%)" },
+    { name: "모래 사막", emoji: "🏜️", foe: "rhino",  bg: "linear-gradient(160deg,#ffd79a 0%,#e08b3c 100%)" },
+    { name: "파란 바다", emoji: "🌊", foe: "shark",  bg: "linear-gradient(160deg,#6dd5ed 0%,#1f6fb2 100%)" },
+    { name: "눈꽃 나라", emoji: "❄️", foe: "polar",  bg: "linear-gradient(160deg,#dff3ff 0%,#7aa8d6 100%)" },
+    { name: "불꽃 화산", emoji: "🌋", foe: "dragon", bg: "linear-gradient(160deg,#ff9a6b 0%,#b3271e 100%)", boss: true }
+  ];
+
+  var HOME_BG = "linear-gradient(160deg,#7f7bff 0%,#3b2f8f 100%)";
+
+  /* =========================================================
+     저장 데이터
+     ========================================================= */
+  var SAVE_KEY = "animal-battle-v1";
+  var save = { name: "동현", sound: true, voice: true, champion: 0, dex: [] };
+
+  function loadSave() {
+    try {
+      var raw = localStorage.getItem(SAVE_KEY);
+      if (raw) {
+        var d = JSON.parse(raw);
+        if (d && typeof d === "object") {
+          if (typeof d.name === "string" && d.name.trim()) save.name = d.name.trim();
+          if (typeof d.sound === "boolean") save.sound = d.sound;
+          if (typeof d.voice === "boolean") save.voice = d.voice;
+          if (typeof d.champion === "number") save.champion = d.champion;
+          if (Array.isArray(d.dex)) save.dex = d.dex;
+        }
+      }
+    } catch (e) { /* 저장이 막혀 있어도 게임은 그대로 진행 */ }
+  }
+
+  function persist() {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
+  }
+
+  /* =========================================================
+     소리 (WebAudio) + 읽어주기 (음성 합성)
+     ========================================================= */
+  var actx = null;
+  function audio() {
+    if (!save.sound) return null;
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      return actx;
+    } catch (e) { return null; }
+  }
+
+  function tone(freq, dur, type, vol, delay) {
+    var ac = audio();
+    if (!ac) return;
+    var t0 = ac.currentTime + (delay || 0);
+    var osc = ac.createOscillator();
+    var g = ac.createGain();
+    osc.type = type || "square";
+    osc.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol || 0.18, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g); g.connect(ac.destination);
+    osc.start(t0); osc.stop(t0 + dur + 0.05);
+  }
+
+  function slide(from, to, dur, type, vol) {
+    var ac = audio();
+    if (!ac) return;
+    var t0 = ac.currentTime;
+    var osc = ac.createOscillator();
+    var g = ac.createGain();
+    osc.type = type || "sawtooth";
+    osc.frequency.setValueAtTime(from, t0);
+    osc.frequency.exponentialRampToValueAtTime(to, t0 + dur);
+    g.gain.setValueAtTime(vol || 0.16, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g); g.connect(ac.destination);
+    osc.start(t0); osc.stop(t0 + dur + 0.05);
+  }
+
+  var SFX = {
+    tap:     function () { tone(660, 0.07, "square", 0.12); },
+    hit:     function () { slide(420, 90, 0.22, "square", 0.2); },
+    guard:   function () { tone(300, 0.12, "triangle", 0.16); tone(420, 0.12, "triangle", 0.14, 0.1); },
+    special: function () { [523, 659, 784, 1047].forEach(function (f, i) { tone(f, 0.14, "square", 0.18, i * 0.07); }); slide(180, 60, 0.5, "sawtooth", 0.14); },
+    heal:    function () { [523, 698, 880].forEach(function (f, i) { tone(f, 0.16, "sine", 0.2, i * 0.09); }); },
+    win:     function () { [523, 659, 784, 1047, 1319].forEach(function (f, i) { tone(f, 0.22, "square", 0.18, i * 0.13); }); },
+    dodge:   function () { slide(1250, 420, 0.18, "sine", 0.16); },
+    lose:    function () { [392, 349, 294, 233].forEach(function (f, i) { tone(f, 0.24, "triangle", 0.16, i * 0.16); }); }
+  };
+
+  function say(text) {
+    if (!save.voice || !("speechSynthesis" in window)) return;
+    try {
+      speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.lang = "ko-KR";
+      u.rate = 1.02;
+      u.pitch = 1.25;
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  /* =========================================================
+     화면 전환
+     ========================================================= */
+  var $ = function (sel) { return document.querySelector(sel); };
+  var stageEl = $("#stage");
+
+  function show(id, bg) {
+    var list = document.querySelectorAll(".screen");
+    for (var i = 0; i < list.length; i++) list[i].classList.remove("on");
+    $(id).classList.add("on");
+    if (bg) stageEl.style.background = bg;
+    $("#app").scrollTop = 0;
+  }
+
+  /* =========================================================
+     게임 상태
+     ========================================================= */
+  var game = {
+    myAnimal: null,   // 고른 동물 데이터
+    stage: 0,         // 0~4
+    me: null,         // 전투 중인 내 상태
+    foe: null,
+    busy: false,
+    guarding: false,
+    snacks: 3,
+    gauge: 0,
+    foeGauge: 0
+  };
+
+  function rnd(n) { return Math.floor(Math.random() * n); }
+
+  /* 한글 받침에 맞춰 조사를 붙인다 ("늑대를", "곰을" 처럼 자연스럽게) */
+  function hasBatchim(word) {
+    if (!word) return false;
+    var c = word.charCodeAt(word.length - 1);
+    if (c < 0xac00 || c > 0xd7a3) return false;
+    return (c - 0xac00) % 28 !== 0;
+  }
+
+  function J(word, kind) {
+    var b = hasBatchim(word);
+    if (kind === "을") return word + (b ? "을" : "를");
+    if (kind === "이") return word + (b ? "이" : "가");
+    if (kind === "은") return word + (b ? "은" : "는");
+    if (kind === "와") return word + (b ? "과" : "와");
+    if (kind === "아") return word + (b ? "아" : "야");
+    return word;
+  }
+
+  /* 이름 부르기: 동현 -> 동현이, 지수 -> 지수 */
+  function nick(name) { return hasBatchim(name) ? name + "이" : name; }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  /* =========================================================
+     홈 화면
+     ========================================================= */
+  function refreshHome() {
+    $("#playerName").value = save.name;
+    $("#home-hello").textContent = nick(save.name) + "의 동물을 골라 대결해요!";
+    $("#home-record").textContent = "🏆 챔피언 " + save.champion + "번 · 📖 도감 " + save.dex.length + " / " + ANIMALS.length + "마리";
+    $("#t-sound").classList.toggle("on", save.sound);
+    $("#t-sound").textContent = save.sound ? "🔊 소리 켬" : "🔈 소리 끔";
+    $("#t-voice").classList.toggle("on", save.voice);
+    $("#t-voice").textContent = save.voice ? "🗣️ 읽어줌" : "🤫 안 읽음";
+  }
+
+  $("#playerName").addEventListener("input", function () {
+    var v = this.value.trim();
+    save.name = v || "친구";
+    persist();
+    $("#home-hello").textContent = nick(save.name) + "의 동물을 골라 대결해요!";
+  });
+
+  $("#t-sound").addEventListener("click", function () {
+    save.sound = !save.sound; persist(); refreshHome(); SFX.tap();
+  });
+
+  $("#t-voice").addEventListener("click", function () {
+    save.voice = !save.voice; persist(); refreshHome();
+    if (save.voice) say("이제 읽어 줄게요");
+    else if ("speechSynthesis" in window) { try { speechSynthesis.cancel(); } catch (e) {} }
+  });
+
+  $("#btn-start").addEventListener("click", function () {
+    SFX.tap();
+    game.stage = 0;
+    buildPick();
+    show("#s-pick", HOME_BG);
+    say(J(nick(save.name), "아") + ", 동물을 골라 봐");
+  });
+
+  $("#btn-dex").addEventListener("click", function () { SFX.tap(); buildDex(); show("#s-dex", HOME_BG); });
+  $("#btn-how").addEventListener("click", function () { SFX.tap(); show("#s-how", HOME_BG); });
+  $("#how-back").addEventListener("click", function () { SFX.tap(); refreshHome(); show("#s-home", HOME_BG); });
+  $("#dex-back").addEventListener("click", function () { SFX.tap(); refreshHome(); show("#s-home", HOME_BG); });
+  $("#btn-pick-back").addEventListener("click", function () { SFX.tap(); refreshHome(); show("#s-home", HOME_BG); });
+
+  /* =========================================================
+     동물 고르기
+     ========================================================= */
+  function stars(n) {
+    var full = Math.max(1, Math.min(5, Math.round(n)));
+    return "⭐".repeat(full);
+  }
+
+  function buildPick() {
+    var grid = $("#pick-grid");
+    grid.innerHTML = "";
+    game.myAnimal = null;
+    $("#btn-go").disabled = true;
+    $("#pick-detail").textContent = "동물을 눌러서 골라보세요!";
+
+    PICKABLE.forEach(function (a) {
+      var el = document.createElement("div");
+      el.className = "acard";
+      el.innerHTML =
+        '<div class="face">' + a.emoji + "</div>" +
+        '<div class="nm">' + a.name + "</div>" +
+        '<div class="st">💗 ' + stars(a.hp / 28) + "<br>👊 " + stars(a.atk / 3.4) + "<br>🌀 " + stars(a.spd / 2.1) + "</div>";
+      el.addEventListener("click", function () {
+        SFX.tap();
+        var sel = grid.querySelectorAll(".acard");
+        for (var i = 0; i < sel.length; i++) sel[i].classList.remove("sel");
+        el.classList.add("sel");
+        game.myAnimal = a;
+        $("#btn-go").disabled = false;
+        $("#pick-detail").innerHTML =
+          '<div style="font-size:38px">' + a.emoji + "</div>" +
+          '<div style="font-size:20px; margin-top:4px">' + a.name + "</div>" +
+          '<div style="font-size:15px; color:#6a6a8a; margin-top:6px">필살기 ✨ ' + a.skill + "</div>" +
+          '<div style="font-size:14px; color:#8a8aa8; margin-top:4px">💗 튼튼함 · 👊 힘 · 🌀 잘 피하기</div>';
+        say(a.name);
+      });
+      grid.appendChild(el);
+    });
+  }
+
+  $("#btn-go").addEventListener("click", function () {
+    if (!game.myAnimal) return;
+    SFX.tap();
+    startStage();
+  });
+
+  /* =========================================================
+     전투 시작
+     ========================================================= */
+  function makeFighter(animal, boostHp, boostAtk) {
+    return {
+      a: animal,
+      maxHp: Math.round(animal.hp * (boostHp || 1)),
+      hp: Math.round(animal.hp * (boostHp || 1)),
+      atk: Math.round(animal.atk * (boostAtk || 1))
+    };
+  }
+
+  function pickFoeAnimal(stageIdx) {
+    var wanted = byId(STAGES[stageIdx].foe);
+    // 내가 고른 동물과 겹치면 다른 동물로 바꿔 준다
+    if (game.myAnimal && wanted.id === game.myAnimal.id) {
+      var alts = PICKABLE.filter(function (x) { return x.id !== game.myAnimal.id; });
+      return alts[rnd(alts.length)];
+    }
+    return wanted;
+  }
+
+  function startStage() {
+    var s = STAGES[game.stage];
+    var foeAnimal = pickFoeAnimal(game.stage);
+
+    // 단계가 올라갈수록 상대가 조금씩 세진다 (6살이 이길 수 있게 완만하게)
+    var hpUp = 1 + game.stage * 0.08;
+    var atkUp = 1 + game.stage * 0.03;
+
+    game.me = makeFighter(game.myAnimal, 1, 1);
+    game.foe = makeFighter(foeAnimal, hpUp, atkUp);
+    game.snacks = 3;
+    game.gauge = 0;
+    game.foeGauge = 0;
+    game.guarding = false;
+    game.busy = false;
+
+    $("#stage-tag").textContent = s.emoji + " " + (game.stage + 1) + "단계 · " + s.name;
+    $("#me-face").textContent = game.me.a.emoji;
+    $("#me-name").textContent = game.me.a.name;
+    $("#foe-face").textContent = game.foe.a.emoji;
+    $("#foe-name").textContent = game.foe.a.name + (s.boss ? " (보스)" : "");
+
+    drawBars();
+    setButtons(true);   // 이전 판에서 잠갔던 버튼을 다시 열어 준다
+    show("#s-battle", s.bg);
+
+    var intro = s.name + "에서 " + J(game.foe.a.name, "을") + " 만났어요!";
+    setMsg("👋 " + intro + "\n공격 버튼을 눌러요!");
+    say(intro);
+  }
+
+  /* =========================================================
+     화면 갱신
+     ========================================================= */
+  function barClass(el, ratio) {
+    el.classList.remove("mid", "low");
+    if (ratio <= 0.3) el.classList.add("low");
+    else if (ratio <= 0.6) el.classList.add("mid");
+  }
+
+  function drawBars() {
+    var mr = Math.max(0, game.me.hp) / game.me.maxHp;
+    var fr = Math.max(0, game.foe.hp) / game.foe.maxHp;
+
+    $("#me-bar").querySelector("i").style.width = (mr * 100) + "%";
+    $("#foe-bar").querySelector("i").style.width = (fr * 100) + "%";
+    barClass($("#me-bar"), mr);
+    barClass($("#foe-bar"), fr);
+
+    $("#me-hp").textContent = Math.max(0, game.me.hp) + " / " + game.me.maxHp;
+    $("#foe-hp").textContent = Math.max(0, game.foe.hp) + " / " + game.foe.maxHp;
+
+    $("#me-gauge").querySelector("i").style.width = game.gauge + "%";
+    $("#gauge-label").textContent = game.gauge >= 100
+      ? "✨ 필살기 준비 완료! (" + game.me.a.skill + ")"
+      : "필살기 모으는 중… " + game.gauge + "%";
+
+    var snackBtn = document.querySelector('[data-act="snack"]');
+    snackBtn.textContent = "🍎 간식 " + game.snacks;
+    snackBtn.disabled = game.snacks <= 0;
+    document.querySelector('[data-act="special"]').disabled = game.gauge < 100;
+  }
+
+  function setMsg(text) {
+    $("#msg").innerHTML = text.replace(/\n/g, "<br>");
+  }
+
+  function floatNum(which, text, isHeal) {
+    var host = which === "me" ? $("#f-me") : $("#f-foe");
+    var el = document.createElement("div");
+    el.className = "float" + (isHeal ? " heal" : "");
+    el.textContent = text;
+    host.appendChild(el);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 1000);
+  }
+
+  function anim(el, cls, ms) {
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+    setTimeout(function () { el.classList.remove(cls); }, ms || 500);
+  }
+
+  function setButtons(on) {
+    var btns = document.querySelectorAll("#actions .btn");
+    for (var i = 0; i < btns.length; i++) btns[i].disabled = !on;
+    if (on) drawBars();
+  }
+
+  /* =========================================================
+     전투 진행
+     ========================================================= */
+  document.querySelectorAll("#actions .btn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (game.busy) return;
+      doTurn(b.getAttribute("data-act"));
+    });
+  });
+
+  function addGauge(n) {
+    game.gauge = Math.min(100, game.gauge + n);
+  }
+
+  async function doTurn(act) {
+    game.busy = true;
+    setButtons(false);
+    game.guarding = false;
+
+    if (act === "attack") {
+      var dmg = game.me.atk + 4 + rnd(5) - 1;
+      var crit = Math.random() < 0.18;
+      if (crit) dmg = Math.round(dmg * 1.6);
+      SFX.tap();
+      anim($("#me-face"), "lunge-up", 420);
+      await sleep(240);
+      hurt("foe", dmg);
+      addGauge(26);
+      setMsg((crit ? "🌟 완벽한 공격! " : "👊 ") + game.me.a.name + "의 공격!\n" + game.foe.a.name + "에게 " + dmg + " 아프게 했어요!");
+      say(crit ? "완벽한 공격!" : game.me.a.name + " 공격!");
+
+    } else if (act === "guard") {
+      game.guarding = true;
+      addGauge(18);
+      SFX.guard();
+      anim($("#me-face"), "charge", 700);
+      setMsg("🛡️ " + J(game.me.a.name, "이") + " 단단하게 막았어요!\n이번엔 조금만 아파요.");
+      say("방어!");
+      await sleep(420);
+
+    } else if (act === "special") {
+      if (game.gauge < 100) { game.busy = false; setButtons(true); return; }
+      game.gauge = 0;
+      SFX.special();
+      anim($("#me-face"), "charge", 700);
+      setMsg("✨✨ " + game.me.a.name + "의 필살기!\n" + game.me.a.skill + "! ✨✨");
+      say("필살기! " + game.me.a.skill);
+      await sleep(700);
+      var big = Math.round(game.me.atk * 2.3) + rnd(6);
+      anim($("#me-face"), "lunge-up", 420);
+      await sleep(200);
+      hurt("foe", big);
+      setMsg("💥💥 " + game.me.a.skill + " 명중!\n" + game.foe.a.name + "에게 " + big + " 아프게 했어요!");
+
+    } else if (act === "snack") {
+      if (game.snacks <= 0) { game.busy = false; setButtons(true); return; }
+      game.snacks--;
+      var heal = Math.round(game.me.maxHp * 0.30);
+      game.me.hp = Math.min(game.me.maxHp, game.me.hp + heal);
+      addGauge(14);
+      SFX.heal();
+      anim($("#me-face"), "charge", 700);
+      floatNum("me", "+" + heal, true);
+      drawBars();
+      setMsg("🍎 냠냠! 힘이 났어요!\n체력이 " + heal + " 회복됐어요!");
+      say("냠냠, 힘이 났어요");
+      await sleep(600);
+    }
+
+    drawBars();
+    await sleep(450);
+
+    if (game.foe.hp <= 0) { await endBattle(true); return; }
+
+    await foeTurn();
+
+    if (game.me.hp <= 0) { await endBattle(false); return; }
+
+    game.busy = false;
+    setButtons(true);
+  }
+
+  async function foeTurn() {
+    game.foeGauge = Math.min(100, game.foeGauge + 22 + rnd(8));
+    var useSpecial = game.foeGauge >= 100;
+
+    setMsg("😾 " + game.foe.a.name + "의 차례!");
+    say(game.foe.a.name + "의 차례");
+    await sleep(500);
+
+    var dmg;
+    if (useSpecial) {
+      game.foeGauge = 0;
+      SFX.special();
+      anim($("#foe-face"), "charge", 700);
+      setMsg("⚡ " + game.foe.a.name + "의 " + game.foe.a.skill + "!");
+      await sleep(600);
+      dmg = Math.round(game.foe.atk * 1.4) + rnd(4);
+    } else {
+      dmg = Math.round(game.foe.atk * 0.78) + rnd(5) - 2;
+    }
+
+    anim($("#foe-face"), "lunge-down", 420);
+    await sleep(240);
+
+    // 빠른 동물은 가끔 휙 피한다 (독수리 35%, 고래 14%)
+    if (Math.random() < game.me.a.spd * 0.035) {
+      SFX.dodge();
+      anim($("#me-face"), "dodgemove", 520);
+      setMsg("🌀 휙! " + J(game.me.a.name, "이") + " 재빠르게 피했어요!\n하나도 안 아파요!");
+      say("휙! 피했어요!");
+      drawBars();
+      await sleep(750);
+      return;
+    }
+
+    var blocked = false;
+    if (game.guarding) { dmg = Math.max(1, Math.round(dmg * 0.4)); blocked = true; }
+
+    hurt("me", dmg);
+    setMsg((blocked ? "🛡️ 막았다! " : "💢 ") + game.foe.a.name + "의 공격!\n" + J(nick(save.name), "이") + " " + dmg + " 아팠어요." + (blocked ? " (반으로 줄었어요)" : ""));
+    if (blocked) say("잘 막았어요!");
+
+    drawBars();
+    await sleep(650);
+  }
+
+  function hurt(who, dmg) {
+    var target = who === "me" ? game.me : game.foe;
+    target.hp = Math.max(0, target.hp - dmg);
+    SFX.hit();
+    var faceEl = who === "me" ? $("#me-face") : $("#foe-face");
+    var boxEl = who === "me" ? $("#f-me") : $("#f-foe");
+    anim(faceEl, "flash", 400);
+    anim(boxEl, "hitting", 400);
+    floatNum(who, "-" + dmg, false);
+    drawBars();
+  }
+
+  /* =========================================================
+     결과 화면
+     ========================================================= */
+  function ladderHtml(clearedCount) {
+    var html = "";
+    for (var i = 0; i < STAGES.length; i++) {
+      var cls = i < clearedCount ? "step done" : (i === clearedCount ? "step now" : "step");
+      html += '<div class="' + cls + '">' + (i < clearedCount ? "⭐" : STAGES[i].emoji) + "</div>";
+    }
+    return html;
+  }
+
+  async function endBattle(won) {
+    game.busy = true;
+    setButtons(false);
+    await sleep(500);
+
+    if (won) {
+      SFX.win();
+      // 도감에 상대 동물 등록
+      if (save.dex.indexOf(game.foe.a.id) === -1) {
+        save.dex.push(game.foe.a.id);
+      }
+      if (save.dex.indexOf(game.me.a.id) === -1) {
+        save.dex.push(game.me.a.id);
+      }
+      game.stage++;
+
+      var last = game.stage >= STAGES.length;
+      if (last) save.champion++;
+      persist();
+
+      var hpLeft = game.me.hp / game.me.maxHp;
+      var starCount = hpLeft > 0.6 ? 3 : (hpLeft > 0.3 ? 2 : 1);
+
+      $("#r-face").textContent = last ? "🏆" : game.me.a.emoji;
+      $("#r-title").textContent = last ? nick(save.name) + " 챔피언!" : "이겼다! 🎉";
+      $("#r-stars").textContent = "⭐".repeat(starCount) + "☆".repeat(3 - starCount);
+      $("#r-desc").innerHTML = last
+        ? "5마리를 모두 이겼어요!<br>" + J(game.me.a.name, "와") + " " + J(nick(save.name), "은") + " 최고의 짝꿍! 🥇"
+        : J(game.foe.a.name, "을") + " 이겼어요!<br>다음은 " + STAGES[game.stage].emoji + " " + STAGES[game.stage].name + "!";
+      $("#r-ladder").innerHTML = ladderHtml(game.stage);
+      $("#r-main").textContent = last ? "🎮 처음부터 다시!" : "다음 단계로 ▶";
+      $("#r-main").className = "btn";
+
+      show("#s-result", last ? "linear-gradient(160deg,#ffd76e 0%,#ff8a3d 100%)" : "linear-gradient(160deg,#8fe3a5 0%,#2fa36a 100%)");
+      confetti(last ? 160 : 80);
+      say(last ? nick(save.name) + " 챔피언! 정말 잘했어요!" : "이겼다! 잘했어요!");
+      $("#r-main").onclick = function () {
+        SFX.tap();
+        if (last) { game.stage = 0; buildPick(); show("#s-pick", HOME_BG); }
+        else startStage();
+      };
+
+    } else {
+      SFX.lose();
+      persist();
+      $("#r-face").textContent = "🤕";
+      $("#r-title").textContent = "아쉬워요!";
+      $("#r-stars").textContent = "💪💪💪";
+      $("#r-desc").innerHTML = "괜찮아요, " + nick(save.name) + "! 다시 하면 돼요.<br>이번엔 🛡️ 방어와 🍎 간식을 써 봐요!";
+      $("#r-ladder").innerHTML = ladderHtml(game.stage);
+      $("#r-main").textContent = "🔁 다시 도전!";
+      $("#r-main").className = "btn green";
+      show("#s-result", "linear-gradient(160deg,#b7b7d8 0%,#5a5a86 100%)");
+      say("괜찮아요. 다시 해 봐요!");
+      $("#r-main").onclick = function () { SFX.tap(); startStage(); };
+    }
+  }
+
+  $("#r-home").addEventListener("click", function () {
+    SFX.tap();
+    refreshHome();
+    show("#s-home", HOME_BG);
+  });
+
+  /* =========================================================
+     도감
+     ========================================================= */
+  function buildDex() {
+    var grid = $("#dex-grid");
+    grid.innerHTML = "";
+    $("#dex-count").textContent = "모은 동물 " + save.dex.length + " / " + ANIMALS.length + "마리";
+
+    ANIMALS.forEach(function (a) {
+      var got = save.dex.indexOf(a.id) !== -1;
+      var el = document.createElement("div");
+      el.className = "acard" + (got ? "" : " locked");
+      el.innerHTML =
+        '<div class="face">' + (got ? a.emoji : "❔") + "</div>" +
+        '<div class="nm">' + (got ? a.name : "???") + "</div>" +
+        '<div class="st">' + (got ? "✨ " + a.skill : "만나면 열려요") + "</div>";
+      if (got) {
+        el.addEventListener("click", function () { SFX.tap(); say(a.name + ". 필살기는 " + a.skill); });
+      }
+      grid.appendChild(el);
+    });
+  }
+
+  /* =========================================================
+     색종이 효과
+     ========================================================= */
+  var cvs = $("#confetti");
+  var ctx = cvs.getContext("2d");
+  var pieces = [];
+  var rafId = null;
+
+  function sizeCanvas() {
+    cvs.width = window.innerWidth;
+    cvs.height = window.innerHeight;
+  }
+  sizeCanvas();
+  window.addEventListener("resize", sizeCanvas);
+
+  function confetti(count) {
+    var colors = ["#ffd23f", "#ff8fb1", "#64b5ff", "#7ede8a", "#c58cff", "#fff"];
+    for (var i = 0; i < count; i++) {
+      pieces.push({
+        x: Math.random() * cvs.width,
+        y: -20 - Math.random() * cvs.height * 0.5,
+        w: 6 + Math.random() * 8,
+        h: 8 + Math.random() * 10,
+        vy: 2 + Math.random() * 3.5,
+        vx: -1.5 + Math.random() * 3,
+        rot: Math.random() * Math.PI,
+        vr: -0.15 + Math.random() * 0.3,
+        c: colors[rnd(colors.length)]
+      });
+    }
+    if (!rafId) rafId = requestAnimationFrame(tick);
+  }
+
+  function tick() {
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+    for (var i = pieces.length - 1; i >= 0; i--) {
+      var p = pieces[i];
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.c;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+      if (p.y > cvs.height + 30) pieces.splice(i, 1);
+    }
+    if (pieces.length) rafId = requestAnimationFrame(tick);
+    else { rafId = null; ctx.clearRect(0, 0, cvs.width, cvs.height); }
+  }
+
+  /* =========================================================
+     시작
+     ========================================================= */
+  loadSave();
+  refreshHome();
+  stageEl.style.background = HOME_BG;
+
+  // 첫 터치에서 오디오를 깨운다 (모바일 정책)
+  document.addEventListener("touchstart", function once() {
+    audio();
+    document.removeEventListener("touchstart", once);
+  }, { passive: true });
+})();
+</script>
+</body>
+</html>
