@@ -7,13 +7,15 @@
 #
 # name 은 요약 문서에 표시할 이름입니다. 비워두면 채널의 실제 이름을 자동으로 씁니다.
 
-channels: []
-  # - name: 채널 이름
-  #   url: https://www.youtube.com/@example
+channels:
+  - name: 슈카월드
+    id: UCsJ6RuBiTVWRX156FVbeaGg   # https://www.youtube.com/@syukaworld
+
+  # 채널을 더 넣고 싶으면 아래처럼 추가하세요.
+  # - name: 슈카월드 코믹스
+  #   url: https://www.youtube.com/@syukaworld-comics
   #
   # - handle: "@another-channel"
-  #
-  # - id: UCupvZG-5ko_eiXAupbDfxWw
 
 options:
   # 자막 언어 우선순위. 앞에 있는 것부터 찾습니다.
