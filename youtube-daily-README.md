@@ -47,6 +47,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 python youtube_daily.py                    # 어제(KST) 방송 요약
 python youtube_daily.py --date 2026-08-20  # 특정 날짜
 python youtube_daily.py --days-back 0      # 오늘 올라온 것까지
+python youtube_daily.py --include-shorts   # 쇼츠도 포함 (기본은 제외)
 python youtube_daily.py --dry-run          # 요약 없이 대상 영상만 확인 (API 비용 0)
 ```
 
@@ -75,8 +76,22 @@ python youtube_daily.py --dry-run          # 요약 없이 대상 영상만 확�
 | --- | --- | --- |
 | `languages` | 자막 언어 우선순위 | `[ko, ko-KR, en]` |
 | `max_videos_per_channel` | 채널당 하루 최대 요약 개수 (비용 안전장치) | `10` |
+| `skip_shorts` | 쇼츠 제외 여부 | `true` |
 | `model` | 사용할 모델 | `claude-opus-5` |
 | `effort` | 사고 강도 (`low`~`max`). 낮출수록 저렴 | `medium` |
+
+### 쇼츠 제외
+
+기본적으로 쇼츠는 요약하지 않습니다. RSS 피드에는 영상 길이나 쇼츠 여부가 들어 있지 않아서
+두 가지로 판별합니다.
+
+1. 제목이나 설명에 `#shorts` 태그가 있는 경우
+2. `youtube.com/shorts/<영상ID>` 를 열어봤을 때 `/watch` 로 넘어가지 않는 경우
+   (일반 영상은 리다이렉트되고, 쇼츠는 그 자리에서 열립니다)
+
+**판별에 실패하면 쇼츠가 아닌 것으로 보고 요약에 포함합니다.** YouTube가 동의 화면이나
+봇 차단 페이지를 돌려줄 때 멀쩡한 방송이 조용히 빠지는 쪽이 더 나쁘기 때문입니다.
+제외된 개수는 요약 문서에 "쇼츠 N개는 제외했습니다"로 표시됩니다.
 
 한국어 자막이 없으면 다른 언어 자막을 받아 한국어로 번역해 요약하고,
 자막을 아예 못 구하면 제목과 영상 설명만으로 요약한 뒤 그렇게 표시합니다.

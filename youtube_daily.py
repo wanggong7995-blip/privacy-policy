@@ -3,11 +3,13 @@
 
 설정 파일(youtube_channels.yml)에 등록한 채널들의 하루치 업로드를 모아
 자막을 받아오고, Claude로 요약해 summaries/YYYY-MM-DD.md 로 저장한다.
+쇼츠는 기본적으로 제외한다.
 
 사용 예:
     python youtube_daily.py                    # 어제(KST) 방송 요약
     python youtube_daily.py --date 2026-08-20  # 특정 날짜
     python youtube_daily.py --days-back 0      # 오늘(KST) 올라온 것까지
+    python youtube_daily.py --include-shorts   # 쇼츠도 포함 (기본은 제외)
     python youtube_daily.py --dry-run          # 요약 없이 대상 영상만 확인
 """
 
@@ -37,6 +39,7 @@ CACHE_PATH = ROOT / ".youtube_channel_cache.json"
 
 FEED_URL = "https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
 WATCH_URL = "https://www.youtube.com/watch?v={video_id}"
+SHORTS_URL = "https://www.youtube.com/shorts/{video_id}"
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
@@ -88,6 +91,7 @@ class VideoResult:
 class ChannelResult:
     channel: ChannelSpec
     videos: list[VideoResult] = field(default_factory=list)
+    skipped_shorts: int = 0
     error: str = ""
 
 
@@ -245,6 +249,58 @@ def fetch_channel_videos(channel_id: str) -> tuple[str, list[Video]]:
 
 def videos_on(videos: Iterable[Video], target: Date) -> list[Video]:
     return [v for v in videos if v.published.date() == target]
+
+
+# -------------------------------------------------------------- 쇼츠 걸러내기
+
+
+SHORTS_HASHTAG_RE = re.compile(r"#\s?shorts?\b", re.IGNORECASE)
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """리다이렉트를 따라가지 않고 HTTPError로 돌려받기 위한 핸들러."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D102
+        return None
+
+
+_NO_REDIRECT_OPENER = urllib.request.build_opener(_NoRedirect)
+
+
+def probe_short(video_id: str, timeout: int = 15) -> Optional[bool]:
+    """youtube.com/shorts/<id> 로 확인한다.
+
+    일반 영상이면 /watch 로 리다이렉트되고, 쇼츠면 그 자리에서 페이지가 열린다.
+    True=쇼츠, False=일반 영상, None=판단 불가(이 경우 제외하지 않는다).
+    """
+    request = urllib.request.Request(
+        SHORTS_URL.format(video_id=video_id),
+        headers={"User-Agent": USER_AGENT, "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8"},
+    )
+    try:
+        with _NO_REDIRECT_OPENER.open(request, timeout=timeout) as resp:
+            # <head> 안의 canonical 링크만 보면 되므로 앞부분만 읽는다.
+            body = resp.read(200_000).decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as exc:
+        if exc.code in (301, 302, 303, 307, 308):
+            return False
+        return None
+    except (urllib.error.URLError, TimeoutError, OSError):
+        return None
+
+    # 동의 화면이나 봇 차단 페이지도 200을 주므로, 실제 쇼츠 페이지인지 확인한다.
+    if f"/shorts/{video_id}" in body or '"isShort":true' in body:
+        return True
+    return None
+
+
+def classify_short(video: Video) -> tuple[bool, str]:
+    """(쇼츠 여부, 판단 근거)를 돌려준다. 확실하지 않으면 쇼츠가 아닌 것으로 본다."""
+    if SHORTS_HASHTAG_RE.search(video.title) or SHORTS_HASHTAG_RE.search(video.description):
+        return True, "#shorts 태그"
+    if probe_short(video.video_id) is True:
+        return True, "쇼츠 URL 확인"
+    return False, ""
 
 
 # -------------------------------------------------------------------- 자막
@@ -436,9 +492,16 @@ def render_markdown(target: Date, results: list[ChannelResult], generated_at: da
             continue
 
         if not result.videos:
-            lines.append("이 날 올라온 영상이 없습니다.")
+            if result.skipped_shorts:
+                lines.append(f"이 날은 쇼츠 {result.skipped_shorts}개뿐이라 요약할 영상이 없습니다.")
+            else:
+                lines.append("이 날 올라온 영상이 없습니다.")
             lines.append("")
             continue
+
+        if result.skipped_shorts:
+            lines.append(f"<sub>쇼츠 {result.skipped_shorts}개는 제외했습니다.</sub>")
+            lines.append("")
 
         for item in result.videos:
             video = item.video
@@ -498,6 +561,9 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser.add_argument("--model", default=None, help=f"사용할 모델 (기본 {DEFAULT_MODEL})")
     parser.add_argument("--effort", default=None, choices=["low", "medium", "high", "xhigh", "max"])
     parser.add_argument("--max-videos", type=int, default=None, help="채널당 최대 영상 수")
+    parser.add_argument(
+        "--include-shorts", action="store_true", help="쇼츠도 요약에 포함 (기본은 제외)"
+    )
     parser.add_argument("--dry-run", action="store_true", help="요약 없이 대상 영상만 출력")
     return parser.parse_args(argv)
 
@@ -515,8 +581,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     effort = args.effort or options.get("effort") or DEFAULT_EFFORT
     languages = options.get("languages") or DEFAULT_LANGUAGES
     max_videos = args.max_videos or options.get("max_videos_per_channel") or 10
+    skip_shorts = options.get("skip_shorts", True) and not args.include_shorts
 
-    log(f"대상 날짜(KST): {target}  |  채널 {len(channels)}개  |  모델 {model} (effort={effort})")
+    log(
+        f"대상 날짜(KST): {target}  |  채널 {len(channels)}개  |  모델 {model} (effort={effort})"
+        f"  |  쇼츠 {'제외' if skip_shorts else '포함'}"
+    )
 
     client = None
     if not args.dry_run:
@@ -546,8 +616,24 @@ def main(argv: Optional[list[str]] = None) -> int:
             log(f"  실패: {exc}")
             continue
 
-        todays = videos_on(videos, target)[:max_videos]
-        log(f"  {target} 업로드 {len(todays)}개")
+        todays = videos_on(videos, target)
+
+        if skip_shorts:
+            kept: list[Video] = []
+            for video in todays:
+                is_short, reason = classify_short(video)
+                if is_short:
+                    result.skipped_shorts += 1
+                    log(f"  - [쇼츠 제외] {video.title} ({reason})")
+                else:
+                    kept.append(video)
+            todays = kept
+
+        todays = todays[:max_videos]
+        summary_line = f"  {target} 업로드 {len(todays)}개"
+        if result.skipped_shorts:
+            summary_line += f" (쇼츠 {result.skipped_shorts}개 제외)"
+        log(summary_line)
 
         for video in todays:
             log(f"  - {video.published:%H:%M} {video.title}")

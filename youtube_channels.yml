@@ -27,6 +27,9 @@ options:
   # 채널 하나당 하루에 요약할 최대 영상 수 (비용 안전장치)
   max_videos_per_channel: 10
 
+  # 쇼츠 제외 여부. false 로 두면 쇼츠도 요약한다.
+  skip_shorts: true
+
   # 요약에 쓸 모델과 사고 강도(low/medium/high/xhigh/max)
   model: claude-opus-5
   effort: medium
