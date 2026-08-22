@@ -1,0 +1,35 @@
+# 요약할 유튜브 채널 목록
+#
+# 각 항목에 url / handle / id 중 하나만 있으면 됩니다.
+#   url:    https://www.youtube.com/@채널핸들  또는  .../channel/UCxxxxxxxx
+#   handle: @채널핸들
+#   id:     UCxxxxxxxxxxxxxxxxxxxxxx  (채널 ID를 이미 아는 경우 가장 빠름)
+#
+# name 은 요약 문서에 표시할 이름입니다. 비워두면 채널의 실제 이름을 자동으로 씁니다.
+
+channels:
+  - name: 슈카월드
+    id: UCsJ6RuBiTVWRX156FVbeaGg   # https://www.youtube.com/@syukaworld
+
+  - name: 전인구경제연구소
+    id: UCznImSIaxZR7fdLCICLdgaQ
+
+  # 채널을 더 넣고 싶으면 아래처럼 추가하세요.
+  # - name: 슈카월드 코믹스
+  #   url: https://www.youtube.com/@syukaworld-comics
+  #
+  # - handle: "@another-channel"
+
+options:
+  # 자막 언어 우선순위. 앞에 있는 것부터 찾습니다.
+  languages: [ko, ko-KR, en]
+
+  # 채널 하나당 하루에 요약할 최대 영상 수 (비용 안전장치)
+  max_videos_per_channel: 10
+
+  # 쇼츠 제외 여부. false 로 두면 쇼츠도 요약한다.
+  skip_shorts: true
+
+  # 요약에 쓸 모델과 사고 강도(low/medium/high/xhigh/max)
+  model: claude-opus-5
+  effort: medium
