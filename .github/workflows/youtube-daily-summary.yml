@@ -1,0 +1,69 @@
+name: 유튜브 일간 요약
+
+on:
+  schedule:
+    # 매일 23:00 UTC = 다음 날 08:00 KST → 전날(KST) 방송을 요약한다
+    - cron: "0 23 * * *"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "요약할 날짜 (KST, YYYY-MM-DD). 비우면 어제"
+        required: false
+        type: string
+      days_back:
+        description: "오늘 기준 며칠 전 (date를 비웠을 때만 사용)"
+        required: false
+        default: "1"
+        type: string
+
+concurrency:
+  group: youtube-daily-summary
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  summarize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-youtube.txt
+
+      - name: 의존성 설치
+        run: pip install -r requirements-youtube.txt
+
+      - name: 요약 생성
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # YouTube가 GitHub Actions IP에서 자막 요청을 막을 때만 설정하면 된다 (선택)
+          WEBSHARE_PROXY_USERNAME: ${{ secrets.WEBSHARE_PROXY_USERNAME }}
+          WEBSHARE_PROXY_PASSWORD: ${{ secrets.WEBSHARE_PROXY_PASSWORD }}
+        run: |
+          if [ -n "${{ inputs.date }}" ]; then
+            python youtube_daily.py --date "${{ inputs.date }}"
+          else
+            python youtube_daily.py --days-back "${{ inputs.days_back || '1' }}"
+          fi
+
+      - name: 결과 커밋
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add summaries .youtube_channel_cache.json
+          if git diff --staged --quiet; then
+            echo "변경 사항이 없습니다."
+            exit 0
+          fi
+          git commit -m "유튜브 일간 요약 자동 업데이트"
+          for i in 1 2 3 4; do
+            git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            echo "푸시 실패, 재시도 ${i}"
+            sleep $((2 ** i))
+          done
+          exit 1
