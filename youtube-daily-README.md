@@ -97,6 +97,47 @@ python youtube_daily.py --dry-run          # 요약 없이 대상 영상만 확�
 자막을 아예 못 구하면 제목과 영상 설명만으로 요약한 뒤 그렇게 표시합니다.
 3시간짜리 라이브처럼 자막이 아주 긴 경우에는 구간별로 나눠 요약한 뒤 하나로 합칩니다.
 
+## 프록시 (Actions에서 자막을 받으려면 필수)
+
+**YouTube는 클라우드 IP에서 오는 자막 요청을 차단합니다.** 실제로 첫 실행에서 확인된 내용입니다.
+
+```
+YouTube is blocking requests from your IP...
+You are doing requests from an IP belonging to a cloud provider
+```
+
+RSS(영상 목록)는 막히지 않아서 어떤 영상이 올라왔는지는 알 수 있지만, 자막이 없으면
+영상 설명만으로 요약하게 되어 품질이 크게 떨어집니다. GitHub Actions에서 제대로 쓰려면
+프록시가 필요합니다. 설정하면 자막뿐 아니라 RSS·쇼츠 판별까지 **모든 YouTube 요청이
+같은 프록시를 거칩니다.**
+
+### 방법 1: Webshare (권장)
+
+`youtube-transcript-api` 가 공식 지원하는 방식입니다.
+
+1. [webshare.io](https://www.webshare.io/) 가입 후 **Residential** 프록시를 구매합니다
+   (Datacenter 프록시는 YouTube에서 대부분 막히므로 반드시 Residential이어야 합니다)
+2. Dashboard → Proxy → Settings 에서 **Proxy Username** 과 **Password** 를 확인합니다
+3. 저장소 Settings → Secrets and variables → Actions 에 두 개를 등록합니다
+   - `WEBSHARE_PROXY_USERNAME`
+   - `WEBSHARE_PROXY_PASSWORD`
+
+### 방법 2: 직접 준비한 프록시
+
+이미 쓰는 프록시가 있다면 `YT_HTTP_PROXY` / `YT_HTTPS_PROXY` 시크릿에
+`http://아이디:비밀번호@호스트:포트` 형식으로 넣으면 됩니다.
+
+### 확인 방법
+
+실행 로그 첫 줄에 어떤 프록시를 쓰는지 찍힙니다.
+
+```
+대상 날짜(KST): 2026-08-22  |  채널 2개  |  ...  |  프록시 Webshare
+```
+
+`프록시 없음` 이면 시크릿이 전달되지 않은 것입니다. 프록시를 켰는데도 자막을 못 받으면
+로그에 자격 증명이나 잔여 트래픽을 확인하라는 경고가 남습니다.
+
 ## 실행 결과 판정
 
 실패를 조용히 넘기지 않도록 종료 코드를 구분합니다. Actions에서는 0이 아니면 빨간불이 됩니다.
@@ -113,10 +154,6 @@ python youtube_daily.py --dry-run          # 요약 없이 대상 영상만 확�
 
 - **비용**: 1시간 방송의 자막은 대략 1~2만 토큰입니다. 하루 몇 편 수준이면 한 달에 몇 달러 정도이고,
   줄이고 싶으면 `effort: low` 로 낮추거나 `model: claude-sonnet-5` 로 바꾸면 됩니다.
-- **자막 차단**: YouTube가 클라우드 IP의 자막 요청을 막는 경우가 있습니다.
-  Actions에서 계속 "자막 없음"이 뜬다면 프록시를 붙이세요 — `WEBSHARE_PROXY_USERNAME`,
-  `WEBSHARE_PROXY_PASSWORD` 시크릿을 등록하면 자동으로 사용하고,
-  일반 프록시는 `YT_HTTP_PROXY` / `YT_HTTPS_PROXY` 환경변수를 씁니다.
 - **정확도**: 자동 생성 자막은 고유명사와 숫자를 자주 틀립니다.
   요약이 확실하지 않은 부분은 원본 영상을 확인하세요.
 - **멤버십 전용/비공개 영상**은 자막을 가져올 수 없어 설명 기반 요약으로 대체됩니다.

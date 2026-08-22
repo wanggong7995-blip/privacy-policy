@@ -25,6 +25,7 @@ import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
+from functools import lru_cache
 from datetime import date as Date
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -113,7 +114,7 @@ def http_get(url: str, retries: int = 3, timeout: int = 30) -> str:
                     "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
                 },
             )
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            with _build_opener(no_redirect=False).open(req, timeout=timeout) as resp:
                 return resp.read().decode("utf-8", errors="replace")
         except (urllib.error.URLError, TimeoutError, OSError) as exc:  # 네트워크 계열
             last = exc
@@ -264,9 +265,6 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-_NO_REDIRECT_OPENER = urllib.request.build_opener(_NoRedirect)
-
-
 def probe_short(video_id: str, timeout: int = 15) -> Optional[bool]:
     """youtube.com/shorts/<id> 로 확인한다.
 
@@ -278,7 +276,7 @@ def probe_short(video_id: str, timeout: int = 15) -> Optional[bool]:
         headers={"User-Agent": USER_AGENT, "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8"},
     )
     try:
-        with _NO_REDIRECT_OPENER.open(request, timeout=timeout) as resp:
+        with _build_opener(no_redirect=True).open(request, timeout=timeout) as resp:
             # <head> 안의 canonical 링크만 보면 되므로 앞부분만 읽는다.
             body = resp.read(200_000).decode("utf-8", errors="replace")
     except urllib.error.HTTPError as exc:
@@ -306,8 +304,13 @@ def classify_short(video: Video) -> tuple[bool, str]:
 # -------------------------------------------------------------------- 자막
 
 
+@lru_cache(maxsize=1)
 def build_proxy_config():
-    """YouTube가 클라우드 IP를 차단할 때를 대비한 선택적 프록시 설정."""
+    """YouTube가 클라우드 IP를 차단할 때를 위한 선택적 프록시 설정.
+
+    GitHub Actions 같은 클라우드 IP에서는 YouTube가 자막 요청을 막기 때문에
+    프록시 없이는 자막을 받지 못한다.
+    """
     user = os.environ.get("WEBSHARE_PROXY_USERNAME")
     password = os.environ.get("WEBSHARE_PROXY_PASSWORD")
     if user and password:
@@ -323,6 +326,32 @@ def build_proxy_config():
         return GenericProxyConfig(http_url=http_url, https_url=https_url)
 
     return None
+
+
+def proxy_label() -> str:
+    config = build_proxy_config()
+    if config is None:
+        return "없음"
+    return type(config).__name__.replace("ProxyConfig", "")
+
+
+@lru_cache(maxsize=2)
+def _build_opener(no_redirect: bool) -> urllib.request.OpenerDirector:
+    """프록시가 설정돼 있으면 YouTube 요청 전체를 그 프록시로 보낸다.
+
+    자막만 프록시를 타고 나머지 요청이 클라우드 IP로 나가면, 그 요청들이
+    차단 판정의 빌미가 될 수 있으므로 경로를 하나로 맞춘다.
+    """
+    handlers: list[urllib.request.BaseHandler] = []
+
+    config = build_proxy_config()
+    if config is not None:
+        handlers.append(urllib.request.ProxyHandler(config.to_requests_dict()))
+
+    if no_redirect:
+        handlers.append(_NoRedirect())
+
+    return urllib.request.build_opener(*handlers)
 
 
 def fetch_transcript(video_id: str, languages: list[str]) -> tuple[str, str]:
@@ -627,7 +656,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     log(
         f"대상 날짜(KST): {target}  |  채널 {len(channels)}개  |  모델 {model} (effort={effort})"
-        f"  |  쇼츠 {'제외' if skip_shorts else '포함'}"
+        f"  |  쇼츠 {'제외' if skip_shorts else '포함'}  |  프록시 {proxy_label()}"
     )
 
     client = None
@@ -742,11 +771,18 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 1
 
     if attempted and not with_transcript:
-        log(
-            f"경고: 대상 영상 {attempted}개 모두 자막을 가져오지 못해 영상 설명만으로 요약했습니다. "
-            "YouTube가 이 IP의 자막 요청을 막고 있을 수 있습니다 "
-            "(프록시 설정은 youtube-daily-README.md 참고)."
-        )
+        if build_proxy_config() is None:
+            hint = (
+                "YouTube가 이 IP의 자막 요청을 막고 있을 수 있습니다. "
+                "GitHub Actions 같은 클라우드 IP라면 프록시가 필요합니다 "
+                "(youtube-daily-README.md 참고)."
+            )
+        else:
+            hint = (
+                f"프록시({proxy_label()})를 쓰고 있는데도 자막을 못 받았습니다. "
+                "프록시 자격 증명이나 잔여 트래픽을 확인하세요."
+            )
+        log(f"경고: 대상 영상 {attempted}개 모두 자막을 가져오지 못했습니다. {hint}")
 
     log(f"요약 {summarized}/{attempted}개 성공, 자막 확보 {with_transcript}개")
     return 0
