@@ -387,19 +387,61 @@ SYSTEM_PROMPT = """당신은 유튜브 방송 내용을 한국어로 요약하�
 """
 
 
+class FatalSummaryError(RuntimeError):
+    """더 진행해도 모든 영상이 같은 이유로 실패하는 오류(인증 실패 등)."""
+
+
+def _is_auth_failure(exc: BaseException) -> bool:
+    """자격 증명 문제인지 판별한다.
+
+    키가 아예 없으면 SDK가 anthropic 예외가 아니라 평범한 TypeError를 던지므로
+    그 경우까지 함께 본다.
+    """
+    if isinstance(exc, TypeError) and "authentication method" in str(exc):
+        return True
+    try:
+        import anthropic
+    except ImportError:
+        return False
+
+    # 예외를 판별하다 또 다른 예외를 내지 않도록 방어적으로 조회한다.
+    auth_errors = tuple(
+        cls
+        for cls in (
+            getattr(anthropic, "AuthenticationError", None),
+            getattr(anthropic, "PermissionDeniedError", None),
+        )
+        if isinstance(cls, type) and issubclass(cls, BaseException)
+    )
+    return bool(auth_errors) and isinstance(exc, auth_errors)
+
+
+def _auth_failure_message(exc: BaseException) -> str:
+    return (
+        "Claude API 인증에 실패했습니다. 이대로면 모든 영상이 같은 이유로 실패하므로 중단합니다. "
+        "GitHub Actions에서 돌리는 경우 ANTHROPIC_API_KEY 시크릿이 등록되어 있는지 확인하세요 "
+        f"(Settings → Secrets and variables → Actions). 원본 오류: {exc}"
+    )
+
+
 def _extract_text(message) -> str:
     return "".join(block.text for block in message.content if block.type == "text").strip()
 
 
 def _call_claude(client, model: str, effort: str, prompt: str, max_tokens: int = 4000) -> str:
-    with client.messages.stream(
-        model=model,
-        max_tokens=max_tokens,
-        system=SYSTEM_PROMPT,
-        output_config={"effort": effort},
-        messages=[{"role": "user", "content": prompt}],
-    ) as stream:
-        message = stream.get_final_message()
+    try:
+        with client.messages.stream(
+            model=model,
+            max_tokens=max_tokens,
+            system=SYSTEM_PROMPT,
+            output_config={"effort": effort},
+            messages=[{"role": "user", "content": prompt}],
+        ) as stream:
+            message = stream.get_final_message()
+    except Exception as exc:
+        if _is_auth_failure(exc):
+            raise FatalSummaryError(_auth_failure_message(exc)) from exc
+        raise
 
     if message.stop_reason == "refusal":
         detail = getattr(message.stop_details, "explanation", "") or ""
@@ -600,6 +642,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     cache = load_cache()
     results: list[ChannelResult] = []
+    fatal: Optional[str] = None
 
     for spec in channels:
         result = ChannelResult(channel=spec)
@@ -655,9 +698,18 @@ def main(argv: Optional[list[str]] = None) -> int:
                 item.summary = summarize_video(
                     client, spec.name, video, transcript, model, effort
                 )
+            except FatalSummaryError as exc:
+                fatal = str(exc)
+                break
             except Exception as exc:
+                if _is_auth_failure(exc):
+                    fatal = _auth_failure_message(exc)
+                    break
                 item.error = str(exc)
                 log(f"    요약 실패: {exc}")
+
+        if fatal:
+            break
 
     save_cache(cache)
 
@@ -665,14 +717,38 @@ def main(argv: Optional[list[str]] = None) -> int:
         log("\n--dry-run 이므로 파일을 만들지 않았습니다.")
         return 0
 
+    if fatal:
+        # 오류 메시지만 가득한 문서를 저장소에 남기지 않는다.
+        log(f"\n중단: {fatal}")
+        return 2
+
     args.out_dir.mkdir(parents=True, exist_ok=True)
     out_path = args.out_dir / f"{target:%Y-%m-%d}.md"
     out_path.write_text(
         render_markdown(target, results, datetime.now(KST)), encoding="utf-8"
     )
     rebuild_index(args.out_dir)
-
     log(f"\n저장 완료: {out_path}")
+
+    attempted = sum(len(r.videos) for r in results)
+    summarized = sum(1 for r in results for item in r.videos if item.summary)
+    with_transcript = sum(
+        1 for r in results for item in r.videos if item.transcript_label
+        and "자막 없음" not in item.transcript_label
+    )
+
+    if attempted and not summarized:
+        log(f"실패: 대상 영상 {attempted}개 중 요약에 성공한 것이 하나도 없습니다.")
+        return 1
+
+    if attempted and not with_transcript:
+        log(
+            f"경고: 대상 영상 {attempted}개 모두 자막을 가져오지 못해 영상 설명만으로 요약했습니다. "
+            "YouTube가 이 IP의 자막 요청을 막고 있을 수 있습니다 "
+            "(프록시 설정은 youtube-daily-README.md 참고)."
+        )
+
+    log(f"요약 {summarized}/{attempted}개 성공, 자막 확보 {with_transcript}개")
     return 0
 
 
