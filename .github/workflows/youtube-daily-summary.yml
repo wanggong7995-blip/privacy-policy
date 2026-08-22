@@ -41,9 +41,12 @@ jobs:
       - name: 요약 생성
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          # YouTube가 GitHub Actions IP에서 자막 요청을 막을 때만 설정하면 된다 (선택)
+          # YouTube는 클라우드 IP의 자막 요청을 막는다. 아래 중 한 가지를 등록해야
+          # Actions에서 자막을 받을 수 있다 (둘 다 없으면 영상 설명만으로 요약된다).
           WEBSHARE_PROXY_USERNAME: ${{ secrets.WEBSHARE_PROXY_USERNAME }}
           WEBSHARE_PROXY_PASSWORD: ${{ secrets.WEBSHARE_PROXY_PASSWORD }}
+          YT_HTTP_PROXY: ${{ secrets.YT_HTTP_PROXY }}
+          YT_HTTPS_PROXY: ${{ secrets.YT_HTTPS_PROXY }}
         run: |
           if [ -n "${{ inputs.date }}" ]; then
             python youtube_daily.py --date "${{ inputs.date }}"
