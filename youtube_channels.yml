@@ -11,6 +11,9 @@ channels:
   - name: 슈카월드
     id: UCsJ6RuBiTVWRX156FVbeaGg   # https://www.youtube.com/@syukaworld
 
+  - name: 전인구경제연구소
+    id: UCznImSIaxZR7fdLCICLdgaQ
+
   # 채널을 더 넣고 싶으면 아래처럼 추가하세요.
   # - name: 슈카월드 코믹스
   #   url: https://www.youtube.com/@syukaworld-comics
