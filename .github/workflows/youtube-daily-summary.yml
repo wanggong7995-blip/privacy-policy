@@ -38,6 +38,11 @@ jobs:
       - name: 의존성 설치
         run: pip install -r requirements-youtube.txt
 
+      - name: 인증 확인
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python youtube_daily.py --check-auth
+
       - name: 요약 생성
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
