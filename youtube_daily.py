@@ -452,6 +452,25 @@ AUTH_HINT = (
 )
 
 
+def _is_credit_failure(exc: BaseException) -> bool:
+    """크레딧 잔액 부족인지 판별한다. 인증은 되지만 호출은 못 하는 상태."""
+    message = str(exc).lower()
+    return "credit balance" in message and "too low" in message
+
+
+CREDIT_HINT = (
+    "Anthropic 콘솔의 Plans & Billing 에서 크레딧을 충전하세요. "
+    "인증 자체는 정상이므로 충전하면 바로 됩니다."
+)
+
+
+def _credit_failure_message(exc: BaseException) -> str:
+    return (
+        "크레딧 잔액이 부족합니다. 이대로면 모든 영상이 같은 이유로 실패하므로 중단합니다. "
+        f"{CREDIT_HINT} 원본 오류: {exc}"
+    )
+
+
 def _auth_failure_message(exc: BaseException) -> str:
     return (
         "Claude API 인증에 실패했습니다. 이대로면 모든 영상이 같은 이유로 실패하므로 중단합니다. "
@@ -476,6 +495,8 @@ def _call_claude(client, model: str, effort: str, prompt: str, max_tokens: int =
     except Exception as exc:
         if _is_auth_failure(exc):
             raise FatalSummaryError(_auth_failure_message(exc)) from exc
+        if _is_credit_failure(exc):
+            raise FatalSummaryError(_credit_failure_message(exc)) from exc
         raise
 
     if message.stop_reason == "refusal":
@@ -653,11 +674,29 @@ def check_auth(model: str) -> int:
     # 설정된 모델 이름이 실제로 쓸 수 있는지도 함께 본다 (오타·권한 확인).
     try:
         info = client.models.retrieve(model)
+        log(f"모델 OK — {info.id}")
     except Exception as exc:
         log(f"경고: 인증은 됐지만 모델 '{model}' 을 조회하지 못했습니다: {exc}")
+
+    # 인증이 통과해도 크레딧이 0이면 요약은 못 한다. 실제로 한 번 호출해봐야
+    # 알 수 있으므로, 1토큰짜리 최소 요청을 보낸다.
+    try:
+        client.messages.create(
+            model=model,
+            max_tokens=1,
+            thinking={"type": "disabled"},
+            output_config={"effort": "low"},
+            messages=[{"role": "user", "content": "."}],
+        )
+    except Exception as exc:
+        if _is_credit_failure(exc):
+            log(f"호출 실패 — {CREDIT_HINT}")
+            log(f"  원본 오류: {exc}")
+            return 2
+        log(f"경고: 시험 호출에서 오류가 났습니다: {exc}")
         return 0
 
-    log(f"모델 OK — {info.id}")
+    log("호출 OK — 요약을 만들 수 있는 상태입니다.")
     return 0
 
 
@@ -792,6 +831,9 @@ def main(argv: Optional[list[str]] = None) -> int:
             except Exception as exc:
                 if _is_auth_failure(exc):
                     fatal = _auth_failure_message(exc)
+                    break
+                if _is_credit_failure(exc):
+                    fatal = _credit_failure_message(exc)
                     break
                 item.error = str(exc)
                 log(f"    요약 실패: {exc}")
