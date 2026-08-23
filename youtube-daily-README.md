@@ -49,6 +49,7 @@ python youtube_daily.py --date 2026-08-20  # 특정 날짜
 python youtube_daily.py --days-back 0      # 오늘 올라온 것까지
 python youtube_daily.py --include-shorts   # 쇼츠도 포함 (기본은 제외)
 python youtube_daily.py --dry-run          # 요약 없이 대상 영상만 확인 (API 비용 0)
+python youtube_daily.py --check-auth       # 자격 증명만 확인 (API 비용 0)
 ```
 
 ## 결과물
@@ -137,6 +138,25 @@ RSS(영상 목록)는 막히지 않아서 어떤 영상이 올라왔는지는 �
 
 `프록시 없음` 이면 시크릿이 전달되지 않은 것입니다. 프록시를 켰는데도 자막을 못 받으면
 로그에 자격 증명이나 잔여 트래픽을 확인하라는 경고가 남습니다.
+
+## 인증 확인
+
+키가 제대로 들어갔는지 요약을 돌려보지 않고 확인할 수 있습니다. 토큰을 생성하지 않는
+Models API만 호출하므로 **비용이 들지 않습니다.**
+
+```bash
+python youtube_daily.py --check-auth
+```
+
+```
+인증 확인  |  모델 claude-opus-5  |  프록시 없음
+인증 OK — 자격 증명이 정상입니다.
+모델 OK — claude-opus-5
+```
+
+인증이 안 되면 종료 코드 2와 함께 원인을 알려줍니다. 모델 이름 오타나 권한 문제도
+함께 걸러집니다. 워크플로에도 `인증 확인` 단계로 들어가 있어서, 키가 없으면 자막을
+받기 전에 바로 멈춥니다.
 
 ## 실행 결과 판정
 

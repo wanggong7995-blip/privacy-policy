@@ -11,6 +11,7 @@
     python youtube_daily.py --days-back 0      # 오늘(KST) 올라온 것까지
     python youtube_daily.py --include-shorts   # 쇼츠도 포함 (기본은 제외)
     python youtube_daily.py --dry-run          # 요약 없이 대상 영상만 확인
+    python youtube_daily.py --check-auth       # 자격 증명만 확인 (비용 없음)
 """
 
 from __future__ import annotations
@@ -445,11 +446,16 @@ def _is_auth_failure(exc: BaseException) -> bool:
     return bool(auth_errors) and isinstance(exc, auth_errors)
 
 
+AUTH_HINT = (
+    "GitHub Actions에서 돌리는 경우 ANTHROPIC_API_KEY 시크릿이 등록되어 있는지 확인하세요 "
+    "(Settings → Secrets and variables → Actions). 내 PC라면 환경변수나 `ant auth login` 프로필을 확인하세요."
+)
+
+
 def _auth_failure_message(exc: BaseException) -> str:
     return (
         "Claude API 인증에 실패했습니다. 이대로면 모든 영상이 같은 이유로 실패하므로 중단합니다. "
-        "GitHub Actions에서 돌리는 경우 ANTHROPIC_API_KEY 시크릿이 등록되어 있는지 확인하세요 "
-        f"(Settings → Secrets and variables → Actions). 원본 오류: {exc}"
+        f"{AUTH_HINT} 원본 오류: {exc}"
     )
 
 
@@ -618,6 +624,43 @@ def rebuild_index(out_dir: Path) -> None:
 # -------------------------------------------------------------------- 실행
 
 
+def check_auth(model: str) -> int:
+    """요약을 돌리기 전에 자격 증명이 쓸 수 있는 상태인지 가볍게 확인한다.
+
+    토큰을 생성하지 않는 Models API를 쓰므로 요약 비용이 들지 않는다.
+    """
+    log(f"인증 확인  |  모델 {model}  |  프록시 {proxy_label()}")
+
+    try:
+        import anthropic
+    except ImportError:
+        log("실패: anthropic 패키지가 없습니다. pip install -r requirements-youtube.txt")
+        return 1
+
+    try:
+        client = anthropic.Anthropic()
+        client.models.list(limit=1)
+    except Exception as exc:
+        if _is_auth_failure(exc):
+            log(f"인증 실패 — {AUTH_HINT}")
+            log(f"  원본 오류: {exc}")
+            return 2
+        log(f"실패: 인증을 확인하는 중 오류가 났습니다: {exc}")
+        return 1
+
+    log("인증 OK — 자격 증명이 정상입니다.")
+
+    # 설정된 모델 이름이 실제로 쓸 수 있는지도 함께 본다 (오타·권한 확인).
+    try:
+        info = client.models.retrieve(model)
+    except Exception as exc:
+        log(f"경고: 인증은 됐지만 모델 '{model}' 을 조회하지 못했습니다: {exc}")
+        return 0
+
+    log(f"모델 OK — {info.id}")
+    return 0
+
+
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="유튜브 채널 일간 요약기")
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="채널 설정 파일")
@@ -636,11 +679,27 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         "--include-shorts", action="store_true", help="쇼츠도 요약에 포함 (기본은 제외)"
     )
     parser.add_argument("--dry-run", action="store_true", help="요약 없이 대상 영상만 출력")
+    parser.add_argument(
+        "--check-auth",
+        action="store_true",
+        help="자격 증명만 확인하고 끝낸다 (요약 비용 없음)",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: Optional[list[str]] = None) -> int:
     args = parse_args(argv)
+
+    if args.check_auth:
+        model = args.model or DEFAULT_MODEL
+        if args.config.exists():
+            try:
+                _, options = load_config(args.config)
+                model = args.model or options.get("model") or DEFAULT_MODEL
+            except SystemExit:
+                pass  # 채널이 비어 있어도 인증 확인은 할 수 있다
+        return check_auth(model)
+
     channels, options = load_config(args.config)
 
     if args.date:
