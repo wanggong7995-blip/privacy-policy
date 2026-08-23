@@ -26,6 +26,10 @@ channels:
 이 저장소의 **Settings → Secrets and variables → Actions → New repository secret** 에
 `ANTHROPIC_API_KEY` 라는 이름으로 등록하세요.
 
+> 이 저장소는 과거 등록분과의 호환을 위해 `YOUTUBE_SUMMARY` 라는 이름도 함께 읽습니다.
+> 둘 다 있으면 `ANTHROPIC_API_KEY` 가 우선입니다. 새로 등록한다면 `ANTHROPIC_API_KEY` 를 쓰세요 —
+> 이름만 보고 무엇이 들어 있는지 알 수 있어야 나중에 헷갈리지 않습니다.
+
 ## 3. 실행
 
 ### 자동 (기본)

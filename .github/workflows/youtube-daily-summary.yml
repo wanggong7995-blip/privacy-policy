@@ -39,13 +39,15 @@ jobs:
         run: pip install -r requirements-youtube.txt
 
       - name: 인증 확인
+        # 키는 ANTHROPIC_API_KEY 시크릿에 넣는 것이 원칙이지만,
+        # YOUTUBE_SUMMARY 라는 이름으로 등록된 경우도 함께 읽는다.
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || secrets.YOUTUBE_SUMMARY }}
         run: python youtube_daily.py --check-auth
 
       - name: 요약 생성
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || secrets.YOUTUBE_SUMMARY }}
           # YouTube는 클라우드 IP의 자막 요청을 막는다. 아래 중 한 가지를 등록해야
           # Actions에서 자막을 받을 수 있다 (둘 다 없으면 영상 설명만으로 요약된다).
           WEBSHARE_PROXY_USERNAME: ${{ secrets.WEBSHARE_PROXY_USERNAME }}
