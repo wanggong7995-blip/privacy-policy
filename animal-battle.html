@@ -6,6 +6,12 @@
 <meta name="theme-color" content="#1b1f4b" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="동물대결" />
+<meta name="description" content="타이밍을 맞춰 싸우는 동물 배틀 게임. 5마리를 모두 이기면 챔피언!" />
+<link rel="manifest" href="./animal-battle.webmanifest" />
+<link rel="icon" href="./battle-icon-192.png" />
+<link rel="apple-touch-icon" href="./battle-apple-touch-icon.png" />
 <title>🐾 동물 대결 챔피언</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -389,6 +395,8 @@
       <button class="btn green" id="btn-how">❓ 하는 법</button>
     </div>
     <div class="tip" id="home-record">챔피언 0번 · 도감 0마리</div>
+    <button class="btn green" id="btn-install" hidden>📱 홈 화면에 앱으로 추가</button>
+    <div class="tip" id="install-tip" hidden></div>
   </section>
 
   <!-- ============ 동물 고르기 ============ -->
@@ -1505,6 +1513,49 @@
   loadSave();
   refreshHome();
   stageEl.style.background = HOME_BG;
+
+  /* 홈 화면에 추가 — 안드로이드/크롬은 버튼, 아이패드/아이폰은 안내 문구 */
+  var installEvent = null;
+
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    installEvent = e;
+    $("#btn-install").hidden = false;
+  });
+
+  $("#btn-install").addEventListener("click", function () {
+    if (!installEvent) return;
+    SFX.tap();
+    installEvent.prompt();
+    installEvent.userChoice.then(function () {
+      installEvent = null;
+      $("#btn-install").hidden = true;
+    });
+  });
+
+  window.addEventListener("appinstalled", function () {
+    installEvent = null;
+    $("#btn-install").hidden = true;
+    $("#install-tip").hidden = true;
+  });
+
+  (function installHint() {
+    var ua = navigator.userAgent || "";
+    var isApple = /iPad|iPhone|iPod/.test(ua) || (ua.indexOf("Macintosh") !== -1 && "ontouchend" in document);
+    var installed = navigator.standalone === true ||
+      (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+    if (installed || !isApple) return;
+    var tip = $("#install-tip");
+    tip.textContent = "📱 공유 버튼 → \"홈 화면에 추가\" 를 누르면 앱처럼 쓸 수 있어요";
+    tip.hidden = false;
+  })();
+
+  // 오프라인에서도 열리도록 서비스워커를 등록한다
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("./sw.js").catch(function () {});
+    });
+  }
 
   // 첫 터치에서 오디오를 깨운다 (모바일 정책)
   document.addEventListener("touchstart", function once() {
