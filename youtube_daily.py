@@ -56,6 +56,11 @@ NS = {
 # 자막이 아주 긴 경우(수 시간짜리 라이브 등) 나눠서 요약한 뒤 합친다.
 CHUNK_CHARS = 240_000
 
+# 요약을 어디로 보낼지. cli 는 Claude 구독 한도(claude CLI), api 는 API 크레딧을 쓴다.
+BACKEND_CLI = "cli"
+BACKEND_API = "api"
+CLI_TIMEOUT = 600
+
 DEFAULT_MODEL = "claude-opus-5"
 DEFAULT_EFFORT = "medium"
 DEFAULT_LANGUAGES = ["ko", "ko-KR", "en"]
@@ -478,11 +483,41 @@ def _auth_failure_message(exc: BaseException) -> str:
     )
 
 
+def select_backend(explicit: Optional[str] = None) -> str:
+    """구독 토큰이 있으면 CLI(구독 한도), 없으면 API(크레딧)를 쓴다."""
+    if explicit and explicit != "auto":
+        return explicit
+    if os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
+        return BACKEND_CLI
+    return BACKEND_API
+
+
+def _call_claude_cli(model: str, prompt: str) -> str:
+    """claude CLI를 통해 구독 한도로 요약한다."""
+    import claude_cli
+
+    # CLI는 시스템 프롬프트 인자를 따로 받지 않으므로 프롬프트 앞에 붙인다.
+    full_prompt = f"{SYSTEM_PROMPT}\n\n---\n\n{prompt}"
+    try:
+        return claude_cli.ask(full_prompt, timeout=CLI_TIMEOUT, model=model)
+    except claude_cli.ClaudeCliError as exc:
+        if exc.is_auth_error:
+            raise FatalSummaryError(
+                "claude CLI 인증에 실패했습니다. 이대로면 모든 영상이 같은 이유로 실패하므로 "
+                "중단합니다. CLAUDE_CODE_OAUTH_TOKEN 이 유효한지 확인하세요 "
+                f"(재발급: claude setup-token). 원본 오류: {exc}"
+            ) from exc
+        raise
+
+
 def _extract_text(message) -> str:
     return "".join(block.text for block in message.content if block.type == "text").strip()
 
 
 def _call_claude(client, model: str, effort: str, prompt: str, max_tokens: int = 4000) -> str:
+    if client is None:
+        return _call_claude_cli(model, prompt)
+
     try:
         with client.messages.stream(
             model=model,
@@ -645,12 +680,42 @@ def rebuild_index(out_dir: Path) -> None:
 # -------------------------------------------------------------------- 실행
 
 
-def check_auth(model: str) -> int:
+def _check_auth_cli(model: str) -> int:
+    try:
+        import claude_cli
+    except ImportError:
+        log("실패: claude_cli.py 를 찾을 수 없습니다.")
+        return 1
+
+    ready, reason = claude_cli.is_ready()
+    log(f"사전 점검: {reason}")
+    if not ready:
+        return 2
+
+    try:
+        answer = claude_cli.ask("ok 라고만 답해줘.", timeout=120, model=model)
+    except claude_cli.ClaudeCliError as exc:
+        if exc.is_auth_error:
+            log("인증 실패 — CLAUDE_CODE_OAUTH_TOKEN 을 확인하세요 (재발급: claude setup-token)")
+            log(f"  원본 오류: {exc}")
+            return 2
+        log(f"실패: claude CLI 호출에 실패했습니다: {exc}")
+        return 1
+
+    log(f"호출 OK — 구독 한도로 요약할 수 있는 상태입니다. (응답: {answer[:40]})")
+    return 0
+
+
+def check_auth(model: str, backend: str) -> int:
     """요약을 돌리기 전에 자격 증명이 쓸 수 있는 상태인지 가볍게 확인한다.
 
     토큰을 생성하지 않는 Models API를 쓰므로 요약 비용이 들지 않는다.
     """
-    log(f"인증 확인  |  모델 {model}  |  프록시 {proxy_label()}")
+    backend_label = "구독(claude CLI)" if backend == BACKEND_CLI else "API 크레딧"
+    log(f"인증 확인  |  모델 {model}  |  프록시 {proxy_label()}  |  요약 {backend_label}")
+
+    if backend == BACKEND_CLI:
+        return _check_auth_cli(model)
 
     try:
         import anthropic
@@ -719,6 +784,12 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     )
     parser.add_argument("--dry-run", action="store_true", help="요약 없이 대상 영상만 출력")
     parser.add_argument(
+        "--backend",
+        choices=["auto", BACKEND_CLI, BACKEND_API],
+        default="auto",
+        help="요약 경로. auto=구독 토큰이 있으면 cli, 없으면 api (기본)",
+    )
+    parser.add_argument(
         "--check-auth",
         action="store_true",
         help="자격 증명만 확인하고 끝낸다 (요약 비용 없음)",
@@ -737,7 +808,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                 model = args.model or options.get("model") or DEFAULT_MODEL
             except SystemExit:
                 pass  # 채널이 비어 있어도 인증 확인은 할 수 있다
-        return check_auth(model)
+        return check_auth(model, select_backend(args.backend))
 
     channels, options = load_config(args.config)
 
@@ -752,13 +823,18 @@ def main(argv: Optional[list[str]] = None) -> int:
     max_videos = args.max_videos or options.get("max_videos_per_channel") or 10
     skip_shorts = options.get("skip_shorts", True) and not args.include_shorts
 
+    backend = select_backend(args.backend)
+    backend_label = "구독(claude CLI)" if backend == BACKEND_CLI else "API 크레딧"
+
     log(
         f"대상 날짜(KST): {target}  |  채널 {len(channels)}개  |  모델 {model} (effort={effort})"
         f"  |  쇼츠 {'제외' if skip_shorts else '포함'}  |  프록시 {proxy_label()}"
+        f"  |  요약 {backend_label}"
     )
 
+    # client 가 None 이면 _call_claude 가 CLI 경로로 간다.
     client = None
-    if not args.dry_run:
+    if not args.dry_run and backend == BACKEND_API:
         try:
             import anthropic
         except ImportError:

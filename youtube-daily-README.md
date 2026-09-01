@@ -19,7 +19,43 @@ channels:
 
 `name` 을 생략하면 채널의 실제 이름을 자동으로 가져와 씁니다.
 
-## 2. API 키 등록
+## 2. 요약 경로 선택
+
+요약을 만드는 방법이 두 가지입니다. **구독 방식이 기본이자 권장**입니다.
+
+| | 구독 (claude CLI) | API 크레딧 |
+| --- | --- | --- |
+| 비용 | Claude 구독료에 포함 (추가 비용 없음) | 사용량만큼 과금 |
+| 필요한 것 | `CLAUDE_CODE_OAUTH_TOKEN` | `ANTHROPIC_API_KEY` + 크레딧 잔액 |
+| 한도 | 구독 플랜의 사용량 한도 | 크레딧 잔액 |
+| 속도 | CLI를 거쳐 조금 느림 | 조금 빠름 |
+
+둘 다 등록돼 있으면 **구독 쪽이 우선**입니다. `--backend api` / `--backend cli` 로 강제할 수 있습니다.
+
+### 구독 방식 (권장)
+
+Claude 구독(Pro/Max/Team/Enterprise) 계정이 필요합니다.
+
+```bash
+npm install -g @anthropic-ai/claude-code
+claude                 # /login 으로 구독 계정 로그인
+claude setup-token     # 출력된 sk-ant-oat01-... 토큰을 복사 (1년 유효)
+```
+
+복사한 토큰을 저장소 시크릿에 `CLAUDE_CODE_OAUTH_TOKEN` 이름으로 등록하세요.
+워크플로가 이 시크릿을 감지하면 claude CLI를 설치하고 구독 한도로 요약합니다.
+
+내 PC에서 쓸 때는 환경변수로 두면 됩니다.
+
+```bash
+export CLAUDE_CODE_OAUTH_TOKEN="sk-ant-oat01-..."
+```
+
+> `ANTHROPIC_API_KEY` 나 `ANTHROPIC_AUTH_TOKEN` 이 환경에 남아 있으면 구독 토큰보다
+> 우선 적용되어 크레딧 오류가 납니다. `claude_cli.py` 가 CLI를 실행할 때 이 둘을
+> 자동으로 제거하므로 신경 쓰지 않아도 됩니다.
+
+## 3. API 크레딧 방식 (선택)
 
 요약에 Claude API를 사용하므로 키가 필요합니다.
 [console.anthropic.com](https://console.anthropic.com/) 에서 키를 만든 뒤,
@@ -30,7 +66,7 @@ channels:
 > 둘 다 있으면 `ANTHROPIC_API_KEY` 가 우선입니다. 새로 등록한다면 `ANTHROPIC_API_KEY` 를 쓰세요 —
 > 이름만 보고 무엇이 들어 있는지 알 수 있어야 나중에 헷갈리지 않습니다.
 
-## 3. 실행
+## 4. 실행
 
 ### 자동 (기본)
 
@@ -54,6 +90,7 @@ python youtube_daily.py --days-back 0      # 오늘 올라온 것까지
 python youtube_daily.py --include-shorts   # 쇼츠도 포함 (기본은 제외)
 python youtube_daily.py --dry-run          # 요약 없이 대상 영상만 확인 (API 비용 0)
 python youtube_daily.py --check-auth       # 자격 증명만 확인 (API 비용 0)
+python youtube_daily.py --backend api      # 구독 대신 API 크레딧으로 강제
 ```
 
 ## 결과물
@@ -153,11 +190,21 @@ RSS(영상 목록)는 막히지 않아서 어떤 영상이 올라왔는지는 �
 python youtube_daily.py --check-auth
 ```
 
+API 크레딧 경로라면 이렇게 나옵니다.
+
 ```
-인증 확인  |  모델 claude-opus-5  |  프록시 없음
+인증 확인  |  모델 claude-opus-5  |  프록시 없음  |  요약 API 크레딧
 인증 OK — 자격 증명이 정상입니다.
 모델 OK — claude-opus-5
 호출 OK — 요약을 만들 수 있는 상태입니다.
+```
+
+구독 경로라면 이렇게 나옵니다.
+
+```
+인증 확인  |  모델 claude-opus-5  |  프록시 없음  |  요약 구독(claude CLI)
+사전 점검: ok (cmd=/usr/local/bin/claude, token len=...)
+호출 OK — 구독 한도로 요약할 수 있는 상태입니다.
 ```
 
 세 줄이 다 나와야 정상입니다. 인증만 통과하고 **크레딧이 0이면** 요약은 못 하는데,
