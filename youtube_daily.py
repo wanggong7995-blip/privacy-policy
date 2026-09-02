@@ -12,6 +12,7 @@
     python youtube_daily.py --include-shorts   # 쇼츠도 포함 (기본은 제외)
     python youtube_daily.py --dry-run          # 요약 없이 대상 영상만 확인
     python youtube_daily.py --check-auth       # 자격 증명만 확인 (비용 없음)
+    python youtube_daily.py --diagnose         # 인증·프록시·RSS·자막을 차례로 점검
 """
 
 from __future__ import annotations
@@ -765,6 +766,78 @@ def check_auth(model: str, backend: str) -> int:
     return 0
 
 
+def diagnose(channels: list[ChannelSpec], options: dict, model: str, backend: str) -> int:
+    """어디까지 되고 어디서 막히는지 한 번에 점검한다.
+
+    프록시를 붙인 뒤 자막이 실제로 뚫렸는지 확인하는 용도이기도 하다.
+    """
+    languages = options.get("languages") or DEFAULT_LANGUAGES
+    failures: list[str] = []
+
+    log("=" * 60)
+    log("1. 요약 백엔드")
+    log("=" * 60)
+    if check_auth(model, backend) != 0:
+        failures.append("요약 백엔드 인증")
+
+    log("")
+    log("=" * 60)
+    log("2. 프록시")
+    log("=" * 60)
+    label = proxy_label()
+    if label == "없음":
+        log("프록시 없음 — 클라우드 IP에서 실행 중이라면 YouTube가 자막 요청을 막습니다.")
+    else:
+        log(f"프록시 {label} 설정됨 — 모든 YouTube 요청이 이 프록시를 거칩니다.")
+
+    log("")
+    log("=" * 60)
+    log("3. 채널 RSS 조회")
+    log("=" * 60)
+    cache = load_cache()
+    probe_video: Optional[Video] = None
+    for spec in channels:
+        try:
+            channel_id = resolve_channel_id(spec, cache)
+            _, videos = fetch_channel_videos(channel_id)
+            log(f"OK   {spec.name}: 최근 영상 {len(videos)}개")
+            if probe_video is None and videos:
+                probe_video = videos[-1]
+        except Exception as exc:
+            log(f"실패 {spec.name}: {exc}")
+            failures.append(f"RSS 조회({spec.name})")
+    save_cache(cache)
+
+    log("")
+    log("=" * 60)
+    log("4. 자막 조회")
+    log("=" * 60)
+    if probe_video is None:
+        log("건너뜀 — RSS에서 확인할 영상을 얻지 못했습니다.")
+        failures.append("자막 조회(확인 불가)")
+    else:
+        log(f"확인 대상: {probe_video.title} ({probe_video.url})")
+        try:
+            text, transcript_label = fetch_transcript(probe_video.video_id, languages)
+            log(f"OK   자막 {len(text):,}자 ({transcript_label})")
+        except Exception as exc:
+            first_line = str(exc).strip().splitlines()[0] if str(exc).strip() else str(exc)
+            log(f"실패 {first_line}")
+            if label == "없음":
+                log("     → 프록시를 붙이면 해결됩니다 (youtube-daily-README.md 참고).")
+            else:
+                log(f"     → 프록시({label})를 쓰는데도 막혔습니다. 자격 증명과 잔여 트래픽을 확인하세요.")
+            failures.append("자막 조회")
+
+    log("")
+    log("=" * 60)
+    if failures:
+        log(f"결과: {len(failures)}개 항목 실패 — {', '.join(failures)}")
+        return 1
+    log("결과: 모든 항목 정상. 자막까지 확보한 요약을 만들 수 있습니다.")
+    return 0
+
+
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="유튜브 채널 일간 요약기")
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="채널 설정 파일")
@@ -790,6 +863,11 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         help="요약 경로. auto=구독 토큰이 있으면 cli, 없으면 api (기본)",
     )
     parser.add_argument(
+        "--diagnose",
+        action="store_true",
+        help="인증·프록시·RSS·자막을 차례로 점검하고 끝낸다",
+    )
+    parser.add_argument(
         "--check-auth",
         action="store_true",
         help="자격 증명만 확인하고 끝낸다 (요약 비용 없음)",
@@ -799,6 +877,11 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
 
 def main(argv: Optional[list[str]] = None) -> int:
     args = parse_args(argv)
+
+    if args.diagnose:
+        channels, options = load_config(args.config)
+        model = args.model or options.get("model") or DEFAULT_MODEL
+        return diagnose(channels, options, model, select_backend(args.backend))
 
     if args.check_auth:
         model = args.model or DEFAULT_MODEL

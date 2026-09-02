@@ -15,6 +15,14 @@ on:
         required: false
         default: "1"
         type: string
+      mode:
+        description: "요약 실행 대신 진단만 하려면 diagnose 선택"
+        required: false
+        default: summary
+        type: choice
+        options:
+          - summary
+          - diagnose
 
 concurrency:
   group: youtube-daily-summary
@@ -66,13 +74,16 @@ jobs:
           YT_HTTP_PROXY: ${{ secrets.YT_HTTP_PROXY }}
           YT_HTTPS_PROXY: ${{ secrets.YT_HTTPS_PROXY }}
         run: |
-          if [ -n "${{ inputs.date }}" ]; then
+          if [ "${{ inputs.mode }}" = "diagnose" ]; then
+            python youtube_daily.py --diagnose
+          elif [ -n "${{ inputs.date }}" ]; then
             python youtube_daily.py --date "${{ inputs.date }}"
           else
             python youtube_daily.py --days-back "${{ inputs.days_back || '1' }}"
           fi
 
       - name: 결과 커밋
+        if: inputs.mode != 'diagnose'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
