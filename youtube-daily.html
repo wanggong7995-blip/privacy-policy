@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>유튜브 일간 요약</title>
+<meta name="description" content="구독 채널의 전날 영상을 자막 기반으로 요약한 일간 브리핑" />
+<link rel="manifest" href="./youtube-daily-manifest.webmanifest" />
+<meta name="theme-color" content="#3E38C8" />
+<link rel="icon" href="./favicon-64.png" />
+<link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6b6b73;
+    --line: #e5e5ea;
+    --brand: #3E38C8;
+    --brand-2: #6E56E6;
+    --accent-bg: #f0efff;
+    --shadow: 0 2px 12px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #131318;
+      --card: #1d1d24;
+      --text: #ececf1;
+      --muted: #9a9aa6;
+      --line: #32323c;
+      --brand: #9b93ff;
+      --brand-2: #b3a8ff;
+      --accent-bg: #262433;
+      --shadow: 0 2px 12px rgba(0,0,0,.35);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.72;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  header {
+    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
+    color: #fff; padding: 22px 20px 18px;
+    padding-top: calc(22px + env(safe-area-inset-top));
+  }
+  header .wrap { max-width: 780px; margin: 0 auto; }
+  header h1 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+  header p { font-size: 13px; opacity: .82; margin-top: 3px; }
+
+  .navbar {
+    position: sticky; top: 0; z-index: 20;
+    background: var(--card); border-bottom: 1px solid var(--line);
+    padding: 10px 20px;
+  }
+  .navbar .wrap {
+    max-width: 780px; margin: 0 auto;
+    display: flex; align-items: center; gap: 8px;
+  }
+  select#dateSel {
+    flex: 1; min-width: 0; font: inherit; font-size: 15px; font-weight: 600;
+    color: var(--text); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 9px 12px; appearance: none; text-align: center;
+  }
+  .navbtn {
+    flex: 0 0 auto; width: 42px; height: 40px;
+    font: inherit; font-size: 17px; line-height: 1;
+    color: var(--brand); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+  }
+  .navbtn:disabled { opacity: .32; cursor: default; }
+  .navbtn:not(:disabled):active { background: var(--accent-bg); }
+
+  main { max-width: 780px; margin: 0 auto; padding: 20px 20px 64px; }
+
+  .state { text-align: center; color: var(--muted); padding: 56px 20px; font-size: 15px; }
+  .state.error {
+    color: var(--text); background: var(--card); border-radius: 14px;
+    box-shadow: var(--shadow); text-align: left; padding: 24px;
+  }
+  .state.error b { display: block; margin-bottom: 8px; font-size: 16px; }
+  .state.error code {
+    display: block; margin-top: 10px; padding: 10px 12px; border-radius: 8px;
+    background: var(--accent-bg); color: var(--brand);
+    font-size: 12.5px; word-break: break-all;
+  }
+
+  .doc-title { font-size: 22px; font-weight: 700; letter-spacing: -.02em; margin-bottom: 6px; }
+  ul.meta { list-style: none; margin-bottom: 22px; }
+  ul.meta li { font-size: 13px; color: var(--muted); }
+
+  details.ch {
+    background: var(--card); border-radius: 14px; box-shadow: var(--shadow);
+    margin-bottom: 16px; overflow: hidden;
+  }
+  details.ch > summary {
+    font-size: 16px; font-weight: 700; padding: 16px 20px;
+    cursor: pointer; list-style: none; position: relative;
+    padding-right: 44px; background: var(--card);
+  }
+  details.ch > summary::-webkit-details-marker { display: none; }
+  details.ch > summary::after {
+    content: '\203A'; position: absolute; right: 20px; top: 50%;
+    transform: translateY(-50%) rotate(90deg); transition: transform .18s;
+    color: var(--muted); font-size: 20px; line-height: 1;
+  }
+  details.ch[open] > summary::after { transform: translateY(-50%) rotate(-90deg); }
+  details.ch > summary:hover { background: var(--accent-bg); }
+  .ch-body { padding: 0 20px 4px; border-top: 1px solid var(--line); }
+
+  .ch-body h3 { font-size: 16.5px; font-weight: 700; line-height: 1.5; margin: 20px 0 2px; }
+  .ch-body h3 a { color: var(--brand); text-decoration: none; }
+  .ch-body h3 a:hover { text-decoration: underline; }
+  p.sub { font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
+  .ch-body p { margin: 10px 0; }
+  .ch-body ul { margin: 8px 0 16px; padding-left: 20px; }
+  .ch-body li { margin-bottom: 7px; }
+  .ch-body strong { font-weight: 700; }
+  blockquote {
+    margin: 12px 0; padding: 10px 14px; border-left: 3px solid var(--brand);
+    background: var(--accent-bg); border-radius: 0 8px 8px 0;
+    font-size: 14px; color: var(--muted);
+  }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: .88em; background: var(--accent-bg); color: var(--brand);
+    padding: 1px 5px; border-radius: 4px;
+  }
+  a { color: var(--brand); }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0 16px; }
+  main > p:last-of-type { font-size: 12.5px; color: var(--muted); line-height: 1.7; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>유튜브 일간 요약</h1>
+    <p>구독 채널의 전날 영상을 자막 기반으로 요약합니다</p>
+  </div>
+</header>
+
+<nav class="navbar">
+  <div class="wrap">
+    <button class="navbtn" id="prevBtn" title="이전 날짜" aria-label="이전 날짜">&lsaquo;</button>
+    <select id="dateSel" aria-label="날짜 선택"></select>
+    <button class="navbtn" id="nextBtn" title="다음 날짜" aria-label="다음 날짜">&rsaquo;</button>
+  </div>
+</nav>
+
+<main id="main">
+  <div class="state">불러오는 중…</div>
+</main>
+
+<script>
+(function () {
+  var DIR = 'summaries/';
+  var dates = [];
+  var main = document.getElementById('main');
+  var sel = document.getElementById('dateSel');
+  var prevBtn = document.getElementById('prevBtn');
+  var nextBtn = document.getElementById('nextBtn');
+
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function inline(s) {
+    return esc(s)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  }
+
+  // youtube_daily.py 가 만드는 마크다운 부분집합만 처리한다.
+  // (# / ## / ### / - / **굵게** / [링크] / <sub> / > / --- / `코드`)
+  function renderMd(md) {
+    var lines = md.split(/\r?\n/);
+    var out = [], title = '', inList = false, inSection = false, seenSection = false, m;
+
+    function closeList() { if (inList) { out.push('</ul>'); inList = false; } }
+    function closeSection() { if (inSection) { out.push('</div></details>'); inSection = false; } }
+    function openList() {
+      if (!inList) { out.push(seenSection ? '<ul>' : '<ul class="meta">'); inList = true; }
+    }
+
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].replace(/\s+$/, '');
+      if (!line) { closeList(); continue; }
+
+      if (/^-{3,}$/.test(line)) { closeList(); closeSection(); out.push('<hr>'); continue; }
+
+      if ((m = line.match(/^#\s+(.*)$/))) { closeList(); title = m[1]; continue; }
+
+      if ((m = line.match(/^##\s+(.*)$/))) {
+        closeList(); closeSection(); seenSection = true;
+        out.push('<details open class="ch"><summary>' + inline(m[1]) + '</summary><div class="ch-body">');
+        inSection = true;
+        continue;
+      }
+
+      if ((m = line.match(/^###\s+(.*)$/))) { closeList(); out.push('<h3>' + inline(m[1]) + '</h3>'); continue; }
+
+      if ((m = line.match(/^<sub>([\s\S]*)<\/sub>$/))) { closeList(); out.push('<p class="sub">' + inline(m[1]) + '</p>'); continue; }
+
+      if ((m = line.match(/^>\s?(.*)$/))) { closeList(); out.push('<blockquote>' + inline(m[1]) + '</blockquote>'); continue; }
+
+      if ((m = line.match(/^-\s+(.*)$/))) { openList(); out.push('<li>' + inline(m[1]) + '</li>'); continue; }
+
+      closeList();
+      out.push('<p>' + inline(line) + '</p>');
+    }
+    closeList(); closeSection();
+    return { title: title, html: out.join('\n') };
+  }
+
+  function showError(head, body, hint) {
+    main.innerHTML = '<div class="state error"><b>' + esc(head) + '</b>' + esc(body) +
+      (hint ? '<code>' + esc(hint) + '</code>' : '') + '</div>';
+  }
+
+  function syncButtons() {
+    // dates 는 최신순이라 인덱스가 클수록 과거다.
+    var i = sel.selectedIndex;
+    prevBtn.disabled = i >= dates.length - 1;
+    nextBtn.disabled = i <= 0;
+  }
+
+  function select(date, push) {
+    sel.value = date;
+    syncButtons();
+    if (push) {
+      try { history.replaceState(null, '', '?date=' + date); } catch (e) {}
+    }
+    load(date);
+  }
+
+  function load(date) {
+    main.innerHTML = '<div class="state">불러오는 중…</div>';
+    fetch(DIR + date + '.md', { cache: 'no-cache' })
+      .then(function (r) {
+        if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+        return r.text();
+      })
+      .then(function (md) {
+        var doc = renderMd(md);
+        main.innerHTML = (doc.title ? '<div class="doc-title">' + esc(doc.title) + '</div>' : '') + doc.html;
+        document.title = date + ' 유튜브 일간 요약';
+        window.scrollTo(0, 0);
+      })
+      .catch(function (e) {
+        showError('요약을 불러오지 못했습니다', date + '.md 를 읽는 중 오류가 발생했습니다. ', String(e.message || e));
+      });
+  }
+
+  sel.addEventListener('change', function () { select(sel.value, true); });
+  prevBtn.addEventListener('click', function () { select(dates[sel.selectedIndex + 1], true); });
+  nextBtn.addEventListener('click', function () { select(dates[sel.selectedIndex - 1], true); });
+
+  // 좌우 화살표 키로도 날짜 이동
+  document.addEventListener('keydown', function (e) {
+    if (e.target && /^(SELECT|INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+    if (e.key === 'ArrowLeft' && !prevBtn.disabled) prevBtn.click();
+    if (e.key === 'ArrowRight' && !nextBtn.disabled) nextBtn.click();
+  });
+
+  fetch(DIR + 'README.md', { cache: 'no-cache' })
+    .then(function (r) {
+      if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+      return r.text();
+    })
+    .then(function (txt) {
+      var re = /^-\s+\[(\d{4}-\d{2}-\d{2})\]\(/gm, m;
+      while ((m = re.exec(txt)) !== null) dates.push(m[1]);
+      if (!dates.length) {
+        main.innerHTML = '<div class="state">아직 만들어진 요약이 없습니다.</div>';
+        sel.disabled = prevBtn.disabled = nextBtn.disabled = true;
+        return;
+      }
+      dates.sort().reverse();
+      sel.innerHTML = dates.map(function (d) {
+        return '<option value="' + d + '">' + d + '</option>';
+      }).join('');
+
+      var want = (location.search.match(/[?&]date=(\d{4}-\d{2}-\d{2})/) || [])[1];
+      select(dates.indexOf(want) >= 0 ? want : dates[0], false);
+    })
+    .catch(function (e) {
+      sel.disabled = prevBtn.disabled = nextBtn.disabled = true;
+      if (location.protocol === 'file:') {
+        showError('웹 주소로 열어주세요',
+          '파일을 직접 여는 방식(file://)에서는 브라우저 보안 정책 때문에 요약을 읽을 수 없습니다. 아래 주소로 열어주세요.',
+          'https://wanggong7995-blip.github.io/privacy-policy/youtube-daily.html');
+      } else {
+        showError('목록을 불러오지 못했습니다',
+          'summaries/README.md 를 읽는 중 오류가 발생했습니다. ', String(e.message || e));
+      }
+    });
+})();
+</script>
+</body>
+</html>

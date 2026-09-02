@@ -1,0 +1,17 @@
+{
+  "name": "유튜브 일간 요약",
+  "short_name": "유튜브요약",
+  "description": "구독 채널의 전날 영상을 자막 기반으로 요약한 일간 브리핑",
+  "lang": "ko",
+  "start_url": "./youtube-daily.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f5f7",
+  "theme_color": "#3E38C8",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
