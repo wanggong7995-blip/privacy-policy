@@ -1,9 +1,12 @@
 name: 유튜브 일간 요약
 
+# 정기 실행은 내 PC(local/run.bat + 작업 스케줄러)가 맡는다.
+# Actions는 클라우드 IP라 YouTube가 자막을 막아 영상 설명만으로 요약되므로,
+# 매일 돌려봐야 품질이 낮은 결과에 구독 사용량만 쓴다.
+# 다시 켜려면 아래 schedule 블록의 주석을 풀면 된다.
 on:
-  schedule:
-    # 매일 23:00 UTC = 다음 날 08:00 KST → 전날(KST) 방송을 요약한다
-    - cron: "0 23 * * *"
+  # schedule:
+  #   - cron: "0 23 * * *"   # 매일 08:00 KST
   workflow_dispatch:
     inputs:
       date:
