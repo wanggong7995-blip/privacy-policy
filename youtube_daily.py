@@ -928,6 +928,18 @@ def main(argv: Optional[list[str]] = None) -> int:
         log(f"\n중단: {fatal}")
         return 2
 
+    # 모든 채널을 못 불러온 것은 "그날 영상이 없음"과 구분해야 한다.
+    # 그대로 두면 채널 목록을 통째로 못 읽은 날도 성공으로 끝난다.
+    failed_channels = sum(1 for r in results if r.error)
+    if results and failed_channels == len(results):
+        log(
+            f"실패: 채널 {len(results)}개를 모두 불러오지 못했습니다. "
+            "YouTube가 이 IP의 요청을 막고 있거나 일시적인 장애일 수 있습니다."
+        )
+        for r in results:
+            log(f"  - {r.channel.name}: {r.error}")
+        return 1
+
     args.out_dir.mkdir(parents=True, exist_ok=True)
     out_path = args.out_dir / f"{target:%Y-%m-%d}.md"
     out_path.write_text(
