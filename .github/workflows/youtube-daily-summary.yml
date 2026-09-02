@@ -26,6 +26,11 @@ permissions:
 jobs:
   summarize:
     runs-on: ubuntu-latest
+    # 단계의 if: 에서는 secrets 컨텍스트를 참조할 수 없으므로 잡 수준 env로 올린다.
+    # 구독 토큰이 있으면 구독 한도로, 없으면 API 크레딧으로 요약한다.
+    env:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || secrets.YOUTUBE_SUMMARY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -41,28 +46,19 @@ jobs:
       # 구독 한도로 요약하려면 claude CLI가 필요하다.
       # 구독 토큰이 없으면 설치를 건너뛰고 API 크레딧 경로로 동작한다.
       - uses: actions/setup-node@v4
-        if: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+        if: env.CLAUDE_CODE_OAUTH_TOKEN != ''
         with:
           node-version: "22"
 
       - name: claude CLI 설치
-        if: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+        if: env.CLAUDE_CODE_OAUTH_TOKEN != ''
         run: npm install -g @anthropic-ai/claude-code
 
       - name: 인증 확인
-        # 키는 ANTHROPIC_API_KEY 시크릿에 넣는 것이 원칙이지만,
-        # YOUTUBE_SUMMARY 라는 이름으로 등록된 경우도 함께 읽는다.
-        env:
-          # 구독 토큰이 있으면 구독 한도로, 없으면 API 크레딧으로 요약한다.
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || secrets.YOUTUBE_SUMMARY }}
         run: python youtube_daily.py --check-auth
 
       - name: 요약 생성
         env:
-          # 구독 토큰이 있으면 구독 한도로, 없으면 API 크레딧으로 요약한다.
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || secrets.YOUTUBE_SUMMARY }}
           # YouTube는 클라우드 IP의 자막 요청을 막는다. 아래 중 한 가지를 등록해야
           # Actions에서 자막을 받을 수 있다 (둘 다 없으면 영상 설명만으로 요약된다).
           WEBSHARE_PROXY_USERNAME: ${{ secrets.WEBSHARE_PROXY_USERNAME }}
