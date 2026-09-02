@@ -14,6 +14,21 @@ channels:
   - name: 전인구경제연구소
     id: UCznImSIaxZR7fdLCICLdgaQ
 
+  - name: 박종훈의 지식한방
+    id: UCOB62fKRT7b73X7tRxMuN2g   # https://www.youtube.com/@kpunch
+
+  - name: 소수몽키
+    id: UCC3yfxS5qC6PCwDzetUuEWg   # https://www.youtube.com/@sosumonkey
+
+  - name: 수페TV
+    id: UCfnqgWlC5IvJEAPTmyjaixA   # https://www.youtube.com/@supe-tv
+
+  - name: 웅덩이매매법 디벨롭몽
+    id: UCvrOll07bwpNzGhBHRB5_yw   # https://www.youtube.com/@developmong
+
+  - name: 이효석아카데미
+    id: UCxvdCnvGODDyuvnELnLkQWw   # https://www.youtube.com/@hs_academy
+
   # 채널을 더 넣고 싶으면 아래처럼 추가하세요.
   # - name: 슈카월드 코믹스
   #   url: https://www.youtube.com/@syukaworld-comics
