@@ -171,7 +171,9 @@
   function inline(s) {
     return esc(s)
       .replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+      // 제목 자체에 대괄호가 들어가는 경우가 있다 (예: "[속보효] 삼성전자...").
+      // 링크 텍스트 안의 한 겹 중첩 대괄호까지 허용한다.
+      .replace(/\[((?:[^\[\]]|\[[^\[\]]*\])*)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   }
 
