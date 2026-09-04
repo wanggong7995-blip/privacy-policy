@@ -222,7 +222,9 @@ def resolve_channel_id(spec: ChannelSpec, cache: dict) -> str:
 
 
 def fetch_channel_videos(channel_id: str) -> tuple[str, list[Video]]:
-    xml_text = http_get(FEED_URL.format(channel_id=channel_id))
+    # 채널 피드는 멀쩡한 채널인데도 간헐적으로 404를 낸다. 기본 3회로는
+    # 3연속 실패로 그날 채널 하나가 통째로 빠지는 일이 생겨 넉넉히 잡는다.
+    xml_text = http_get(FEED_URL.format(channel_id=channel_id), retries=6)
     root = ET.fromstring(xml_text)
 
     feed_title_el = root.find("atom:title", NS)
