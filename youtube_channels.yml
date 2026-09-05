@@ -29,6 +29,12 @@ channels:
   - name: 이효석아카데미
     id: UCxvdCnvGODDyuvnELnLkQWw   # https://www.youtube.com/@hs_academy
 
+  - name: 증시각도기TV
+    id: UCdOjVxkj5JA0iDu3_xcsTyQ   # https://www.youtube.com/@koreanstockrider
+
+  - name: 박두환의 실전투자교실
+    id: UC2nxUZX9N1WBhbM1yZBHjVw   # https://www.youtube.com/@duhwanpark534
+
   # 채널을 더 넣고 싶으면 아래처럼 추가하세요.
   # - name: 슈카월드 코믹스
   #   url: https://www.youtube.com/@syukaworld-comics
