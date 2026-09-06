@@ -1,13 +1,20 @@
-/* 마음돌봄 서비스워커 — 오프라인에서도 열리도록 핵심 파일을 캐시한다.
-   기록 데이터는 localStorage에 있으므로 여기서 다루지 않는다. */
-const CACHE = "maeumdolbom-v1";
+/* 서비스워커 — 오프라인에서도 열리도록 핵심 파일을 캐시한다.
+   마음돌봄 워크북과 동물 대결 게임 두 앱을 함께 담당한다.
+   기록 데이터는 각 앱의 localStorage에 있으므로 여기서 다루지 않는다. */
+const CACHE = "maeumdolbom-v2";
 const ASSETS = [
   "./self-esteem.html",
   "./manifest.webmanifest",
   "./icon-192.png",
   "./icon-512.png",
   "./icon-maskable-512.png",
-  "./apple-touch-icon.png"
+  "./apple-touch-icon.png",
+  "./animal-battle.html",
+  "./animal-battle.webmanifest",
+  "./battle-icon-192.png",
+  "./battle-icon-512.png",
+  "./battle-icon-maskable-512.png",
+  "./battle-apple-touch-icon.png"
 ];
 
 self.addEventListener("install", (e) => {
@@ -32,6 +39,13 @@ self.addEventListener("fetch", (e) => {
         caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
         return res;
       })
-      .catch(() => caches.match(e.request).then((r) => r || caches.match("./self-esteem.html")))
+      .catch(() =>
+        caches.match(e.request).then((r) => {
+          if (r) return r;
+          // 오프라인에서 주소만 열었을 때 알맞은 앱 화면으로 되돌려 준다
+          const path = new URL(e.request.url).pathname;
+          return caches.match(path.includes("animal-battle") ? "./animal-battle.html" : "./self-esteem.html");
+        })
+      )
   );
 });

@@ -1,0 +1,1568 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#1b1f4b" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="동물대결" />
+<meta name="description" content="타이밍을 맞춰 싸우는 동물 배틀 게임. 5마리를 모두 이기면 챔피언!" />
+<link rel="manifest" href="./animal-battle.webmanifest" />
+<link rel="icon" href="./battle-icon-192.png" />
+<link rel="apple-touch-icon" href="./battle-apple-touch-icon.png" />
+<title>🐾 동물 대결 챔피언</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --ink: #22224a;
+    --card: #ffffff;
+    --shadow: 0 6px 0 rgba(0,0,0,0.12);
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    color: var(--ink);
+    background: #1b1f4b;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ===== 무대(스테이지 배경) ===== */
+  #stage {
+    position: fixed; inset: 0;
+    background: linear-gradient(160deg, #6dd5ed 0%, #2193b0 100%);
+    transition: background 600ms ease;
+  }
+
+  #app {
+    position: relative;
+    height: 100%;
+    max-width: 560px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    padding: max(12px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+
+  .screen { display: none; flex-direction: column; gap: 14px; flex: 1; }
+  .screen.on { display: flex; animation: pop 320ms ease; }
+
+  @keyframes pop { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+  /* ===== 공통 요소 ===== */
+  .panel {
+    background: rgba(255,255,255,0.94);
+    border-radius: 22px;
+    padding: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  }
+
+  .btn {
+    border: none;
+    border-radius: 18px;
+    background: #ffd23f;
+    color: #4a3200;
+    font-size: 21px;
+    font-weight: 800;
+    padding: 16px 18px;
+    min-height: 62px;
+    width: 100%;
+    box-shadow: 0 5px 0 #d9a900;
+    cursor: pointer;
+    transition: transform 90ms ease, box-shadow 90ms ease, filter 150ms ease;
+    font-family: inherit;
+  }
+  .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #d9a900; }
+  .btn.blue   { background: #64b5ff; color: #08315c; box-shadow: 0 5px 0 #2b7fd0; }
+  .btn.blue:active { box-shadow: 0 1px 0 #2b7fd0; }
+  .btn.green  { background: #7ede8a; color: #14431d; box-shadow: 0 5px 0 #46b256; }
+  .btn.green:active { box-shadow: 0 1px 0 #46b256; }
+  .btn.pink   { background: #ff8fb1; color: #5c0d26; box-shadow: 0 5px 0 #de5b83; }
+  .btn.pink:active { box-shadow: 0 1px 0 #de5b83; }
+  .btn:disabled { filter: grayscale(0.7) opacity(0.55); cursor: default; }
+
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+
+  /* ===== 홈 화면 ===== */
+  .title-wrap { text-align: center; color: #fff; text-shadow: 0 4px 0 rgba(0,0,0,0.25); padding-top: 12px; }
+  .title-wrap .big { font-size: 40px; font-weight: 900; letter-spacing: -1px; line-height: 1.2; }
+  .title-wrap .sub { font-size: 16px; margin-top: 8px; opacity: 0.95; font-weight: 700; }
+  .title-emojis { font-size: 46px; letter-spacing: 4px; margin-bottom: 6px; }
+  .title-emojis span { display: inline-block; animation: bob 1.6s ease-in-out infinite; }
+  .title-emojis span:nth-child(2) { animation-delay: .2s; }
+  .title-emojis span:nth-child(3) { animation-delay: .4s; }
+  .title-emojis span:nth-child(4) { animation-delay: .6s; }
+  @keyframes bob { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-10px) } }
+
+  .name-box { display: flex; align-items: center; gap: 10px; justify-content: center; }
+  .name-box label { font-size: 16px; font-weight: 800; }
+  .name-box input {
+    font-family: inherit; font-size: 19px; font-weight: 800; text-align: center;
+    width: 130px; padding: 10px; border-radius: 14px; border: 3px solid #ffd23f;
+    color: var(--ink); background: #fffdf3;
+  }
+
+  .toggles { display: flex; gap: 8px; }
+  .toggle {
+    flex: 1; border: none; border-radius: 16px; padding: 12px 8px; font-size: 15px; font-weight: 800;
+    font-family: inherit; background: #e9e9f5; color: #6a6a8a; cursor: pointer;
+  }
+  .toggle.on { background: #7ede8a; color: #14431d; }
+
+  /* ===== 동물 고르기 ===== */
+  .sect-title { text-align: center; color: #fff; font-size: 24px; font-weight: 900; text-shadow: 0 3px 0 rgba(0,0,0,0.25); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+  .acard {
+    background: var(--card); border-radius: 18px; padding: 10px 6px 8px; text-align: center;
+    box-shadow: var(--shadow); cursor: pointer; border: 4px solid transparent;
+    transition: transform 120ms ease, border-color 120ms ease;
+  }
+  .acard:active { transform: scale(0.94); }
+  .acard.sel { border-color: #ffd23f; transform: translateY(-4px) scale(1.03); }
+  .acard .face { font-size: 40px; line-height: 1.1; }
+  .acard .nm { font-size: 15px; font-weight: 900; margin-top: 2px; }
+  .acard .st { font-size: 11px; color: #7a7a9a; font-weight: 700; margin-top: 3px; line-height: 1.5; }
+  .acard.locked { filter: grayscale(1) opacity(0.55); }
+
+  .pick-bottom {
+    position: sticky; bottom: 0;
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 10px 0 4px;
+    background: linear-gradient(180deg, rgba(59,47,143,0) 0%, rgba(59,47,143,0.85) 26%, rgba(59,47,143,0.95) 100%);
+    border-radius: 20px;
+  }
+
+  /* ===== 배틀 ===== */
+  .stage-tag {
+    align-self: center; background: rgba(0,0,0,0.35); color: #fff; font-weight: 800; font-size: 15px;
+    padding: 6px 16px; border-radius: 999px;
+  }
+
+  .fighter { position: relative; background: rgba(255,255,255,0.94); border-radius: 20px; padding: 10px 14px; box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
+  .fighter .top { display: flex; align-items: center; gap: 10px; }
+  .fighter .face { font-size: 54px; transition: transform 180ms ease; }
+  .fighter .info { flex: 1; min-width: 0; }
+  .fighter .nm { font-size: 17px; font-weight: 900; display: flex; justify-content: space-between; align-items: baseline; }
+  .fighter .nm .hpnum { font-size: 14px; color: #6a6a8a; font-weight: 800; }
+
+  .bar { height: 16px; background: #e6e6f0; border-radius: 999px; overflow: hidden; margin-top: 5px; }
+  .bar > i { display: block; height: 100%; width: 100%; border-radius: 999px; background: linear-gradient(90deg,#59e08a,#2fc46a); transition: width 420ms ease, background 300ms ease; }
+  .bar.mid > i { background: linear-gradient(90deg,#ffd75e,#ffb100); }
+  .bar.low > i { background: linear-gradient(90deg,#ff8a8a,#ff4d4d); }
+
+  .gauge { height: 12px; background: #e6e6f0; border-radius: 999px; overflow: hidden; margin-top: 6px; }
+  .gauge > i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg,#8fd0ff,#7a5cff); transition: width 350ms ease; }
+  .gauge-label { font-size: 12px; font-weight: 800; color: #6a6a8a; margin-top: 4px; }
+
+  .hitting { animation: hitshake 380ms ease; }
+  @keyframes hitshake {
+    0%,100% { transform: translateX(0) }
+    20% { transform: translateX(-9px) }
+    40% { transform: translateX(8px) }
+    60% { transform: translateX(-6px) }
+    80% { transform: translateX(4px) }
+  }
+  .flash { animation: flash 380ms ease; }
+  @keyframes flash { 0%,100% { filter: none } 40% { filter: brightness(1.9) saturate(2) drop-shadow(0 0 10px #ff5b5b) } }
+  .lunge-down { animation: lungeDown 420ms ease; }
+  @keyframes lungeDown { 0%,100% { transform: translateY(0) } 45% { transform: translateY(22px) scale(1.18) } }
+  .lunge-up { animation: lungeUp 420ms ease; }
+  @keyframes lungeUp { 0%,100% { transform: translateY(0) } 45% { transform: translateY(-22px) scale(1.18) } }
+  .dodgemove { animation: dodgemove 520ms ease; }
+  @keyframes dodgemove {
+    0% { transform: translateX(0) }
+    30% { transform: translateX(-26px) rotate(-14deg) }
+    65% { transform: translateX(20px) rotate(10deg) }
+    100% { transform: translateX(0) }
+  }
+  .charge { animation: charge 700ms ease; }
+  @keyframes charge {
+    0% { transform: scale(1) } 30% { transform: scale(1.3) rotate(-8deg) }
+    60% { transform: scale(1.3) rotate(8deg) } 100% { transform: scale(1) }
+  }
+
+  .float {
+    position: absolute; right: 18px; top: 6px; font-size: 30px; font-weight: 900;
+    color: #ff3b3b; text-shadow: 0 3px 0 #fff, 0 0 12px rgba(255,255,255,0.9);
+    animation: floatUp 950ms ease forwards; pointer-events: none;
+  }
+  .float.heal { color: #22b455; }
+  @keyframes floatUp { 0% { opacity: 0; transform: translateY(10px) scale(0.6) } 25% { opacity: 1; transform: translateY(-6px) scale(1.25) } 100% { opacity: 0; transform: translateY(-52px) scale(1) } }
+
+  .msgbox {
+    background: rgba(0,0,0,0.5); color: #fff; border-radius: 18px; padding: 14px;
+    font-size: 19px; font-weight: 800; text-align: center; min-height: 76px;
+    display: flex; align-items: center; justify-content: center; line-height: 1.45;
+  }
+
+  .vs-line { text-align: center; font-size: 22px; font-weight: 900; color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,0.3); }
+
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .actions .btn { font-size: 19px; min-height: 68px; }
+  .actions .wide { grid-column: 1 / -1; }
+
+  /* ===== 액션 연출 ===== */
+  #flash { position: fixed; inset: 0; pointer-events: none; z-index: 40; opacity: 0; background: #fff; }
+  #flash.go { animation: flashfx 260ms ease; }
+  @keyframes flashfx { 0% { opacity: 0 } 14% { opacity: 0.85 } 100% { opacity: 0 } }
+
+  #vignette {
+    position: fixed; inset: 0; pointer-events: none; z-index: 30; opacity: 0;
+    box-shadow: inset 0 0 90px 26px rgba(220,0,0,0.6); transition: opacity 350ms ease;
+  }
+  #vignette.danger { animation: dangerPulse 780ms ease-in-out infinite; }
+  @keyframes dangerPulse { 0%,100% { opacity: 0.35 } 50% { opacity: 1 } }
+
+  #bigtext {
+    position: fixed; inset: 0; z-index: 45; pointer-events: none;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    font-size: 54px; font-weight: 900; color: #fff; opacity: 0; line-height: 1.15;
+    padding: 0 18px; word-break: keep-all;
+    text-shadow: 0 6px 0 rgba(0,0,0,0.35), 0 0 26px rgba(255,214,90,0.95);
+  }
+  #bigtext.go { animation: bigpop 850ms ease; }
+  @keyframes bigpop {
+    0% { opacity: 0; transform: scale(0.3) rotate(-12deg) }
+    22% { opacity: 1; transform: scale(1.3) rotate(5deg) }
+    70% { opacity: 1; transform: scale(1) rotate(0) }
+    100% { opacity: 0; transform: scale(1.15) }
+  }
+
+  .shake { animation: bigshake 420ms ease; }
+  @keyframes bigshake {
+    0%,100% { transform: translate(0,0) }
+    15% { transform: translate(-11px, 7px) }
+    30% { transform: translate(10px, -8px) }
+    45% { transform: translate(-9px, -5px) }
+    60% { transform: translate(8px, 6px) }
+    80% { transform: translate(-4px, 2px) }
+  }
+
+  .combo {
+    position: fixed; top: 92px; right: 14px; z-index: 35;
+    font-size: 21px; font-weight: 900; color: #fff;
+    background: linear-gradient(135deg,#ff9a3d,#ff4d6d);
+    padding: 7px 15px; border-radius: 999px; box-shadow: 0 6px 16px rgba(0,0,0,0.32);
+    opacity: 0; transform: scale(0.5); transition: opacity 180ms ease, transform 180ms ease;
+  }
+  .combo.on { opacity: 1; transform: scale(1); }
+  .combo.hit { animation: comboPulse 420ms ease; }
+  @keyframes comboPulse { 0% { transform: scale(1.6) rotate(-6deg) } 100% { transform: scale(1) rotate(0) } }
+
+  /* 타이밍 액션 */
+  #timing {
+    position: fixed; inset: 0; z-index: 46; display: none;
+    align-items: center; justify-content: center; flex-direction: column; gap: 14px;
+    background: rgba(8,8,28,0.55); padding: 22px;
+  }
+  #timing.on { display: flex; animation: pop 160ms ease; }
+  #timing .tlabel {
+    color: #fff; font-size: 27px; font-weight: 900; text-align: center;
+    background: rgba(0,0,0,0.55); padding: 10px 20px; border-radius: 999px;
+  }
+  #timing .tsub {
+    color: #ffe9a8; font-size: 16px; font-weight: 800; text-align: center;
+    background: rgba(0,0,0,0.55); padding: 8px 16px; border-radius: 999px;
+  }
+  .tbar {
+    position: relative; width: 100%; max-width: 460px; height: 78px;
+    border-radius: 18px; overflow: hidden; background: #262646;
+    border: 5px solid #fff; box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+  }
+  .tzone { position: absolute; top: 0; bottom: 0; }
+  .tzone.good { background: #35b866; }
+  .tzone.perfect { background: #ffd23f; }
+  .tcursor {
+    position: absolute; top: -8px; bottom: -8px; width: 16px; margin-left: -8px;
+    background: #ff1f6b; border: 3px solid #fff; border-radius: 9px;
+    box-shadow: 0 0 14px #ff1f6b, 0 0 26px rgba(255,255,255,0.9);
+  }
+
+  /* 턴 제한시간 */
+  .turnbar { height: 14px; border-radius: 999px; background: rgba(0,0,0,0.3); overflow: hidden; }
+  .turnbar > i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg,#7ef0a0,#2fc46a); }
+  .turnbar.hot > i { background: linear-gradient(90deg,#ffb36b,#ff3b3b); }
+  .turnbar.off { visibility: hidden; }
+
+  /* 상대의 큰 공격 예고 */
+  .warn { margin-top: 6px; font-size: 14px; font-weight: 900; color: #cc1f1f; display: none; }
+  .warn.on { display: block; animation: warnBlink 560ms ease-in-out infinite; }
+  @keyframes warnBlink { 0%,100% { opacity: 1 } 50% { opacity: 0.3 } }
+  .fighter.alert { animation: alertRing 700ms ease-in-out infinite; }
+  @keyframes alertRing {
+    0%,100% { box-shadow: 0 6px 18px rgba(0,0,0,0.18) }
+    50% { box-shadow: 0 0 0 5px rgba(255,60,60,0.9), 0 6px 18px rgba(0,0,0,0.18) }
+  }
+
+  /* 타격 불꽃 */
+  .spark { position: absolute; font-size: 26px; pointer-events: none; animation: sparkfly 620ms ease-out forwards; }
+  @keyframes sparkfly {
+    0% { opacity: 1; transform: translate(0,0) scale(0.5) }
+    100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.6) }
+  }
+
+  .ko-fly { animation: koFly 900ms ease-in forwards; }
+  @keyframes koFly {
+    0% { transform: translate(0,0) rotate(0) scale(1); opacity: 1 }
+    100% { transform: translate(160px,-260px) rotate(720deg) scale(0.3); opacity: 0 }
+  }
+
+  /* 체력바 잔상 */
+  .bar { position: relative; }
+  .bar > u, .bar > i { position: absolute; inset: 0; height: 100%; border-radius: 999px; }
+  .bar > u { background: rgba(255,255,255,0.8); transition: width 300ms ease 420ms; }
+  .bar > i { z-index: 2; }
+
+  /* ===== 결과 ===== */
+  .result-face { font-size: 92px; text-align: center; animation: bob 1.4s ease-in-out infinite; }
+  .result-title { text-align: center; font-size: 32px; font-weight: 900; color: #fff; text-shadow: 0 4px 0 rgba(0,0,0,0.25); }
+  .result-desc { text-align: center; font-size: 18px; font-weight: 700; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,0.25); line-height: 1.6; }
+  .stars { text-align: center; font-size: 34px; letter-spacing: 6px; }
+
+  .ladder { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; }
+  .ladder .step {
+    width: 46px; height: 46px; border-radius: 14px; background: rgba(255,255,255,0.25);
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+  }
+  .ladder .step.done { background: #7ede8a; }
+  .ladder .step.now { background: #ffd23f; animation: bob 1.2s ease-in-out infinite; }
+
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+
+  .dex-count { text-align: center; color: #fff; font-weight: 800; font-size: 16px; text-shadow: 0 2px 0 rgba(0,0,0,0.25); }
+
+  .tip { text-align: center; font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.9); text-shadow: 0 2px 0 rgba(0,0,0,0.2); }
+
+  @media (max-height: 700px) {
+    .fighter .face { font-size: 38px; }
+    .msgbox { min-height: 62px; font-size: 17px; }
+    .actions .btn { min-height: 60px; font-size: 18px; }
+    .title-wrap .big { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<canvas id="confetti"></canvas>
+<div id="vignette"></div>
+<div id="flash"></div>
+<div id="bigtext"></div>
+<div class="combo" id="combo">🔥 2연속!</div>
+
+<div id="timing">
+  <div class="tlabel" id="tlabel">지금이야!</div>
+  <div class="tbar" id="tbar">
+    <div class="tzone good" style="left:30%; width:40%"></div>
+    <div class="tzone perfect" style="left:43%; width:14%"></div>
+    <div class="tcursor" id="tcursor" style="left:0%"></div>
+  </div>
+  <div class="tsub">👆 아무 데나 눌러요 · 🟡 노란 칸이면 <b>완벽!</b></div>
+</div>
+
+<div id="app">
+
+  <!-- ============ 홈 ============ -->
+  <section id="s-home" class="screen on">
+    <div class="title-wrap">
+      <div class="title-emojis"><span>🦁</span><span>⚡</span><span>🦈</span><span>🏆</span></div>
+      <div class="big">동물 대결<br>챔피언</div>
+      <div class="sub" id="home-hello">동현이의 동물을 골라 대결해요!</div>
+    </div>
+
+    <div class="panel" style="display:flex; flex-direction:column; gap:12px;">
+      <div class="name-box">
+        <label for="playerName">내 이름</label>
+        <input id="playerName" maxlength="6" value="동현" />
+      </div>
+      <div class="toggles">
+        <button class="toggle on" id="t-sound">🔊 소리 켬</button>
+        <button class="toggle on" id="t-voice">🗣️ 읽어줌</button>
+        <button class="toggle on" id="t-rush">⏱️ 두근두근</button>
+      </div>
+    </div>
+
+    <button class="btn" id="btn-start">🎮 대결 시작!</button>
+    <div class="row">
+      <button class="btn blue" id="btn-dex">📖 동물 도감</button>
+      <button class="btn green" id="btn-how">❓ 하는 법</button>
+    </div>
+    <div class="tip" id="home-record">챔피언 0번 · 도감 0마리</div>
+    <button class="btn green" id="btn-install" hidden>📱 홈 화면에 앱으로 추가</button>
+    <div class="tip" id="install-tip" hidden></div>
+  </section>
+
+  <!-- ============ 동물 고르기 ============ -->
+  <section id="s-pick" class="screen">
+    <div class="sect-title">🐾 내 동물을 골라요</div>
+    <div class="grid" id="pick-grid"></div>
+    <div class="pick-bottom">
+      <div class="panel" id="pick-detail" style="text-align:center; font-weight:800;">
+        동물을 눌러서 골라보세요!
+      </div>
+      <button class="btn" id="btn-go" disabled>이 동물로 대결! 💥</button>
+      <button class="btn blue" id="btn-pick-back">🏠 처음으로</button>
+    </div>
+  </section>
+
+  <!-- ============ 배틀 ============ -->
+  <section id="s-battle" class="screen">
+    <div class="stage-tag" id="stage-tag">🌳 1단계 · 초록 숲</div>
+    <div class="turnbar" id="turnbar"><i></i></div>
+
+    <div class="fighter" id="f-foe">
+      <div class="top">
+        <div class="face" id="foe-face">🐺</div>
+        <div class="info">
+          <div class="nm"><span id="foe-name">늑대</span><span class="hpnum" id="foe-hp">100 / 100</span></div>
+          <div class="bar" id="foe-bar"><u></u><i></i></div>
+          <div class="warn" id="foe-warn">⚠️ 큰 공격이 와요! 막아요!</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="vs-line">⚔️ 대결 중! ⚔️</div>
+
+    <div class="fighter" id="f-me">
+      <div class="top">
+        <div class="face" id="me-face">🦁</div>
+        <div class="info">
+          <div class="nm"><span id="me-name">사자</span><span class="hpnum" id="me-hp">100 / 100</span></div>
+          <div class="bar" id="me-bar"><u></u><i></i></div>
+          <div class="gauge" id="me-gauge"><i></i></div>
+          <div class="gauge-label" id="gauge-label">필살기 준비 중… 0%</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:1"></div>
+
+    <div class="msgbox" id="msg">준비!</div>
+
+    <div style="flex:1"></div>
+
+    <div class="actions" id="actions">
+      <button class="btn" data-act="attack">👊 공격!</button>
+      <button class="btn blue" data-act="guard">🛡️ 방어!</button>
+      <button class="btn pink" data-act="special">💥 필살기</button>
+      <button class="btn green" data-act="snack">🍎 간식 3</button>
+    </div>
+  </section>
+
+  <!-- ============ 결과 ============ -->
+  <section id="s-result" class="screen">
+    <div class="result-face" id="r-face">🏆</div>
+    <div class="result-title" id="r-title">이겼다!</div>
+    <div class="stars" id="r-stars">⭐⭐⭐</div>
+    <div class="result-desc" id="r-desc"></div>
+    <div class="ladder" id="r-ladder"></div>
+    <div style="flex:1"></div>
+    <button class="btn" id="r-main">다음 단계로 ▶</button>
+    <button class="btn blue" id="r-home">🏠 처음으로</button>
+  </section>
+
+  <!-- ============ 도감 ============ -->
+  <section id="s-dex" class="screen">
+    <div class="sect-title">📖 동물 도감</div>
+    <div class="dex-count" id="dex-count"></div>
+    <div class="grid" id="dex-grid"></div>
+    <div style="flex:1"></div>
+    <button class="btn blue" id="dex-back">🏠 처음으로</button>
+  </section>
+
+  <!-- ============ 하는 법 ============ -->
+  <section id="s-how" class="screen">
+    <div class="sect-title">❓ 하는 법</div>
+    <div class="panel" style="font-size:17px; font-weight:700; line-height:1.9;">
+      1️⃣ 좋아하는 동물을 골라요.<br>
+      2️⃣ <b>👊 공격</b> 을 누르면 막대가 나와요.<br>
+      3️⃣ 하얀 막대가 <b>🟡 노란 칸</b> 에 왔을 때 화면을 <b>탁!</b><br>
+      　 → ⭐ 완벽하면 두 배로 아프게 해요!<br>
+      4️⃣ 연속으로 성공하면 <b>🔥 콤보</b> 로 더 세져요.<br>
+      5️⃣ 위에 있는 시간 막대가 사라지기 전에 눌러요. ⏱️<br>
+      6️⃣ 상대가 <b>⚠️ 큰 공격</b> 을 준비하면 <b>🛡️ 방어</b>!<br>
+      7️⃣ 파란 막대가 가득 차면 <b>💥 필살기</b>!<br>
+      8️⃣ 힘들면 <b>🍎 간식</b> 을 먹어요. (한 판에 3번)<br>
+      9️⃣ 🌀 빠른 동물은 공격을 <b>휙 피해요</b>!<br>
+      🔟 5마리를 모두 이기면 <b>🏆 챔피언</b>!<br><br>
+      🌟 져도 괜찮아요. 다시 하면 돼요!<br>
+      🐢 시간이 부담되면 홈에서 <b>천천히</b> 로 바꿀 수 있어요.
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn blue" id="how-back">🏠 처음으로</button>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* =========================================================
+     동물 데이터 — 6살이 알기 쉬운 동물들
+     ========================================================= */
+  var ANIMALS = [
+    { id: "lion",     name: "사자",     emoji: "🦁", hp: 105, atk: 14, spd: 7,  skill: "백수의 포효" },
+    { id: "tiger",    name: "호랑이",   emoji: "🐯", hp: 100, atk: 16, spd: 8,  skill: "번개 발톱" },
+    { id: "elephant", name: "코끼리",   emoji: "🐘", hp: 130, atk: 11, spd: 4,  skill: "코 태풍" },
+    { id: "shark",    name: "상어",     emoji: "🦈", hp: 100, atk: 15, spd: 7,  skill: "회오리 물살" },
+    { id: "croc",     name: "악어",     emoji: "🐊", hp: 115, atk: 13, spd: 5,  skill: "꽉 물기" },
+    { id: "eagle",    name: "독수리",   emoji: "🦅", hp: 88,  atk: 15, spd: 10, skill: "하늘 급강하" },
+    { id: "bear",     name: "곰",       emoji: "🐻", hp: 122, atk: 14, spd: 5,  skill: "곰돌이 펀치" },
+    { id: "rhino",    name: "코뿔소",   emoji: "🦏", hp: 125, atk: 13, spd: 6,  skill: "돌진 뿔치기" },
+    { id: "wolf",     name: "늑대",     emoji: "🐺", hp: 96,  atk: 13, spd: 9,  skill: "달빛 울음" },
+    { id: "gorilla",  name: "고릴라",   emoji: "🦍", hp: 118, atk: 15, spd: 6,  skill: "가슴 북 쿵쿵" },
+    { id: "trex",     name: "티라노",   emoji: "🦖", hp: 120, atk: 17, spd: 6,  skill: "공룡 대왕 물기" },
+    { id: "whale",    name: "고래",     emoji: "🐋", hp: 140, atk: 12, spd: 4,  skill: "물기둥 분수" },
+    { id: "polar",    name: "북극곰",   emoji: "🐻‍❄️", hp: 128, atk: 14, spd: 5, skill: "눈보라 펀치" },
+    { id: "dragon",   name: "드래곤",   emoji: "🐉", hp: 172, atk: 16, spd: 8,  skill: "불꽃 브레스" }
+  ];
+
+  // 고를 수 있는 동물 (드래곤은 마지막 보스 전용)
+  var PICKABLE = ANIMALS.filter(function (a) { return a.id !== "dragon"; });
+
+  function byId(id) {
+    for (var i = 0; i < ANIMALS.length; i++) if (ANIMALS[i].id === id) return ANIMALS[i];
+    return ANIMALS[0];
+  }
+
+  /* =========================================================
+     스테이지 — 5단계 모험
+     ========================================================= */
+  var STAGES = [
+    { name: "초록 숲",   emoji: "🌳", foe: "wolf",   bg: "linear-gradient(160deg,#8fd98f 0%,#2e8b57 100%)" },
+    { name: "모래 사막", emoji: "🏜️", foe: "rhino",  bg: "linear-gradient(160deg,#ffd79a 0%,#e08b3c 100%)" },
+    { name: "파란 바다", emoji: "🌊", foe: "shark",  bg: "linear-gradient(160deg,#6dd5ed 0%,#1f6fb2 100%)" },
+    { name: "눈꽃 나라", emoji: "❄️", foe: "polar",  bg: "linear-gradient(160deg,#dff3ff 0%,#7aa8d6 100%)" },
+    { name: "불꽃 화산", emoji: "🌋", foe: "dragon", bg: "linear-gradient(160deg,#ff9a6b 0%,#b3271e 100%)", boss: true }
+  ];
+
+  var HOME_BG = "linear-gradient(160deg,#7f7bff 0%,#3b2f8f 100%)";
+
+  /* =========================================================
+     저장 데이터
+     ========================================================= */
+  var SAVE_KEY = "animal-battle-v1";
+  var save = { name: "동현", sound: true, voice: true, rush: true, champion: 0, dex: [] };
+
+  function loadSave() {
+    try {
+      var raw = localStorage.getItem(SAVE_KEY);
+      if (raw) {
+        var d = JSON.parse(raw);
+        if (d && typeof d === "object") {
+          if (typeof d.name === "string" && d.name.trim()) save.name = d.name.trim();
+          if (typeof d.sound === "boolean") save.sound = d.sound;
+          if (typeof d.voice === "boolean") save.voice = d.voice;
+          if (typeof d.rush === "boolean") save.rush = d.rush;
+          if (typeof d.champion === "number") save.champion = d.champion;
+          if (Array.isArray(d.dex)) save.dex = d.dex;
+        }
+      }
+    } catch (e) { /* 저장이 막혀 있어도 게임은 그대로 진행 */ }
+  }
+
+  function persist() {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
+  }
+
+  /* =========================================================
+     소리 (WebAudio) + 읽어주기 (음성 합성)
+     ========================================================= */
+  var actx = null;
+  function audio() {
+    if (!save.sound) return null;
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      return actx;
+    } catch (e) { return null; }
+  }
+
+  function tone(freq, dur, type, vol, delay) {
+    var ac = audio();
+    if (!ac) return;
+    var t0 = ac.currentTime + (delay || 0);
+    var osc = ac.createOscillator();
+    var g = ac.createGain();
+    osc.type = type || "square";
+    osc.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol || 0.18, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g); g.connect(ac.destination);
+    osc.start(t0); osc.stop(t0 + dur + 0.05);
+  }
+
+  function slide(from, to, dur, type, vol) {
+    var ac = audio();
+    if (!ac) return;
+    var t0 = ac.currentTime;
+    var osc = ac.createOscillator();
+    var g = ac.createGain();
+    osc.type = type || "sawtooth";
+    osc.frequency.setValueAtTime(from, t0);
+    osc.frequency.exponentialRampToValueAtTime(to, t0 + dur);
+    g.gain.setValueAtTime(vol || 0.16, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g); g.connect(ac.destination);
+    osc.start(t0); osc.stop(t0 + dur + 0.05);
+  }
+
+  var SFX = {
+    tap:     function () { tone(660, 0.07, "square", 0.12); },
+    hit:     function () { slide(420, 90, 0.22, "square", 0.2); },
+    guard:   function () { tone(300, 0.12, "triangle", 0.16); tone(420, 0.12, "triangle", 0.14, 0.1); },
+    special: function () { [523, 659, 784, 1047].forEach(function (f, i) { tone(f, 0.14, "square", 0.18, i * 0.07); }); slide(180, 60, 0.5, "sawtooth", 0.14); },
+    heal:    function () { [523, 698, 880].forEach(function (f, i) { tone(f, 0.16, "sine", 0.2, i * 0.09); }); },
+    win:     function () { [523, 659, 784, 1047, 1319].forEach(function (f, i) { tone(f, 0.22, "square", 0.18, i * 0.13); }); },
+    dodge:   function () { slide(1250, 420, 0.18, "sine", 0.16); },
+    tick:    function () { tone(1180, 0.05, "square", 0.12); },
+    perfect: function () { [988, 1319, 1760].forEach(function (f, i) { tone(f, 0.1, "square", 0.2, i * 0.05); }); },
+    miss:    function () { tone(180, 0.16, "triangle", 0.14); },
+    warn:    function () { tone(320, 0.12, "sawtooth", 0.13); tone(320, 0.12, "sawtooth", 0.13, 0.18); },
+    ko:      function () { slide(700, 70, 0.5, "square", 0.24); [1047, 1319].forEach(function (f, i) { tone(f, 0.2, "square", 0.2, 0.25 + i * 0.1); }); },
+    lose:    function () { [392, 349, 294, 233].forEach(function (f, i) { tone(f, 0.24, "triangle", 0.16, i * 0.16); }); }
+  };
+
+  /* 전투 배경 비트 — 빨라질수록 긴박해진다 */
+  var bgm = { timer: null, step: 0, tempo: 0, root: 98 };
+
+  function noiseHit(dur, vol) {
+    var ac = audio();
+    if (!ac) return;
+    var len = Math.floor(ac.sampleRate * dur);
+    var buf = ac.createBuffer(1, len, ac.sampleRate);
+    var data = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    var src = ac.createBufferSource();
+    src.buffer = buf;
+    var hp = ac.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = 6000;
+    var g = ac.createGain();
+    g.gain.value = vol;
+    src.connect(hp); hp.connect(g); g.connect(ac.destination);
+    src.start();
+  }
+
+  function bgmStart(tempo) {
+    bgmStop();
+    if (!save.sound) return;
+    bgm.tempo = tempo;
+    bgm.step = 0;
+    var beat = 60000 / tempo / 2;
+    bgm.timer = setInterval(function () {
+      if (!save.sound) { bgmStop(); return; }
+      var st = bgm.step % 8;
+      if (st === 0 || st === 3 || st === 6) slide(150, 52, 0.13, "sine", 0.22);   // 킥
+      if (st % 2 === 1) noiseHit(0.03, 0.05);                                     // 하이햇
+      if (st === 0 || st === 4) tone(bgm.root, 0.16, "triangle", 0.1);            // 베이스
+      bgm.step++;
+    }, beat);
+  }
+
+  function bgmStop() {
+    if (bgm.timer) { clearInterval(bgm.timer); bgm.timer = null; }
+    bgm.tempo = 0;
+  }
+
+  function say(text) {
+    if (!save.voice || !("speechSynthesis" in window)) return;
+    try {
+      speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.lang = "ko-KR";
+      u.rate = 1.02;
+      u.pitch = 1.25;
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  /* =========================================================
+     화면 전환
+     ========================================================= */
+  var $ = function (sel) { return document.querySelector(sel); };
+  var stageEl = $("#stage");
+
+  function show(id, bg) {
+    if (id !== "#s-battle") { bgmStop(); clearTurnTimer(); setDanger(false); }
+    var list = document.querySelectorAll(".screen");
+    for (var i = 0; i < list.length; i++) list[i].classList.remove("on");
+    $(id).classList.add("on");
+    if (bg) stageEl.style.background = bg;
+    $("#app").scrollTop = 0;
+  }
+
+  /* =========================================================
+     게임 상태
+     ========================================================= */
+  var game = {
+    myAnimal: null,   // 고른 동물 데이터
+    stage: 0,         // 0~4
+    me: null,         // 전투 중인 내 상태
+    foe: null,
+    busy: false,
+    guarding: false,
+    snacks: 3,
+    gauge: 0,
+    foeGauge: 0,
+    combo: 0,
+    danger: false,
+    nearly: false
+  };
+
+  function rnd(n) { return Math.floor(Math.random() * n); }
+
+  /* 한글 받침에 맞춰 조사를 붙인다 ("늑대를", "곰을" 처럼 자연스럽게) */
+  function hasBatchim(word) {
+    if (!word) return false;
+    var c = word.charCodeAt(word.length - 1);
+    if (c < 0xac00 || c > 0xd7a3) return false;
+    return (c - 0xac00) % 28 !== 0;
+  }
+
+  function J(word, kind) {
+    var b = hasBatchim(word);
+    if (kind === "을") return word + (b ? "을" : "를");
+    if (kind === "이") return word + (b ? "이" : "가");
+    if (kind === "은") return word + (b ? "은" : "는");
+    if (kind === "와") return word + (b ? "과" : "와");
+    if (kind === "아") return word + (b ? "아" : "야");
+    return word;
+  }
+
+  /* 이름 부르기: 동현 -> 동현이, 지수 -> 지수 */
+  function nick(name) { return hasBatchim(name) ? name + "이" : name; }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  /* =========================================================
+     홈 화면
+     ========================================================= */
+  function refreshHome() {
+    $("#playerName").value = save.name;
+    $("#home-hello").textContent = nick(save.name) + "의 동물을 골라 대결해요!";
+    $("#home-record").textContent = "🏆 챔피언 " + save.champion + "번 · 📖 도감 " + save.dex.length + " / " + ANIMALS.length + "마리";
+    $("#t-sound").classList.toggle("on", save.sound);
+    $("#t-sound").textContent = save.sound ? "🔊 소리 켬" : "🔈 소리 끔";
+    $("#t-voice").classList.toggle("on", save.voice);
+    $("#t-voice").textContent = save.voice ? "🗣️ 읽어줌" : "🤫 안 읽음";
+    $("#t-rush").classList.toggle("on", save.rush);
+    $("#t-rush").textContent = save.rush ? "⏱️ 두근두근" : "🐢 천천히";
+  }
+
+  $("#playerName").addEventListener("input", function () {
+    var v = this.value.trim();
+    save.name = v || "친구";
+    persist();
+    $("#home-hello").textContent = nick(save.name) + "의 동물을 골라 대결해요!";
+  });
+
+  $("#t-sound").addEventListener("click", function () {
+    save.sound = !save.sound; persist(); refreshHome(); SFX.tap();
+  });
+
+  $("#t-voice").addEventListener("click", function () {
+    save.voice = !save.voice; persist(); refreshHome();
+    if (save.voice) say("이제 읽어 줄게요");
+    else if ("speechSynthesis" in window) { try { speechSynthesis.cancel(); } catch (e) {} }
+  });
+
+  $("#t-rush").addEventListener("click", function () {
+    save.rush = !save.rush; persist(); refreshHome(); SFX.tap();
+    say(save.rush ? "두근두근 모드! 시간 안에 눌러요" : "천천히 모드! 시간 제한이 없어요");
+  });
+
+  $("#btn-start").addEventListener("click", function () {
+    SFX.tap();
+    game.stage = 0;
+    buildPick();
+    show("#s-pick", HOME_BG);
+    say(J(nick(save.name), "아") + ", 동물을 골라 봐");
+  });
+
+  $("#btn-dex").addEventListener("click", function () { SFX.tap(); buildDex(); show("#s-dex", HOME_BG); });
+  $("#btn-how").addEventListener("click", function () { SFX.tap(); show("#s-how", HOME_BG); });
+  $("#how-back").addEventListener("click", function () { SFX.tap(); refreshHome(); show("#s-home", HOME_BG); });
+  $("#dex-back").addEventListener("click", function () { SFX.tap(); refreshHome(); show("#s-home", HOME_BG); });
+  $("#btn-pick-back").addEventListener("click", function () { SFX.tap(); refreshHome(); show("#s-home", HOME_BG); });
+
+  /* =========================================================
+     동물 고르기
+     ========================================================= */
+  function stars(n) {
+    var full = Math.max(1, Math.min(5, Math.round(n)));
+    return "⭐".repeat(full);
+  }
+
+  function buildPick() {
+    var grid = $("#pick-grid");
+    grid.innerHTML = "";
+    game.myAnimal = null;
+    $("#btn-go").disabled = true;
+    $("#pick-detail").textContent = "동물을 눌러서 골라보세요!";
+
+    PICKABLE.forEach(function (a) {
+      var el = document.createElement("div");
+      el.className = "acard";
+      el.innerHTML =
+        '<div class="face">' + a.emoji + "</div>" +
+        '<div class="nm">' + a.name + "</div>" +
+        '<div class="st">💗 ' + stars(a.hp / 28) + "<br>👊 " + stars(a.atk / 3.4) + "<br>🌀 " + stars(a.spd / 2.1) + "</div>";
+      el.addEventListener("click", function () {
+        SFX.tap();
+        var sel = grid.querySelectorAll(".acard");
+        for (var i = 0; i < sel.length; i++) sel[i].classList.remove("sel");
+        el.classList.add("sel");
+        game.myAnimal = a;
+        $("#btn-go").disabled = false;
+        $("#pick-detail").innerHTML =
+          '<div style="font-size:38px">' + a.emoji + "</div>" +
+          '<div style="font-size:20px; margin-top:4px">' + a.name + "</div>" +
+          '<div style="font-size:15px; color:#6a6a8a; margin-top:6px">필살기 ✨ ' + a.skill + "</div>" +
+          '<div style="font-size:14px; color:#8a8aa8; margin-top:4px">💗 튼튼함 · 👊 힘 · 🌀 잘 피하기</div>';
+        say(a.name);
+      });
+      grid.appendChild(el);
+    });
+  }
+
+  $("#btn-go").addEventListener("click", function () {
+    if (!game.myAnimal) return;
+    SFX.tap();
+    startStage();
+  });
+
+  /* =========================================================
+     전투 시작
+     ========================================================= */
+  function makeFighter(animal, boostHp, boostAtk) {
+    return {
+      a: animal,
+      maxHp: Math.round(animal.hp * (boostHp || 1)),
+      hp: Math.round(animal.hp * (boostHp || 1)),
+      atk: Math.round(animal.atk * (boostAtk || 1))
+    };
+  }
+
+  function pickFoeAnimal(stageIdx) {
+    var wanted = byId(STAGES[stageIdx].foe);
+    // 내가 고른 동물과 겹치면 다른 동물로 바꿔 준다
+    if (game.myAnimal && wanted.id === game.myAnimal.id) {
+      var alts = PICKABLE.filter(function (x) { return x.id !== game.myAnimal.id; });
+      return alts[rnd(alts.length)];
+    }
+    return wanted;
+  }
+
+  function startStage() {
+    var s = STAGES[game.stage];
+    var foeAnimal = pickFoeAnimal(game.stage);
+
+    // 단계가 올라갈수록 상대가 조금씩 세진다 (6살이 이길 수 있게 완만하게)
+    var hpUp = 1 + game.stage * 0.08;
+    var atkUp = 1 + game.stage * 0.03;
+
+    game.me = makeFighter(game.myAnimal, 1, 1);
+    game.foe = makeFighter(foeAnimal, hpUp, atkUp);
+    game.snacks = 3;
+    game.gauge = 0;
+    game.foeGauge = 0;
+    game.guarding = false;
+    game.busy = false;
+    game.combo = 0;
+    game.nearly = false;
+    game.danger = false;
+    game.warned = false;
+    $("#vignette").classList.remove("danger");
+    $("#foe-warn").classList.remove("on");
+    $("#f-foe").classList.remove("alert");
+    $("#foe-face").classList.remove("ko-fly");
+    updateCombo();
+
+    $("#stage-tag").textContent = s.emoji + " " + (game.stage + 1) + "단계 · " + s.name;
+    $("#me-face").textContent = game.me.a.emoji;
+    $("#me-name").textContent = game.me.a.name;
+    $("#foe-face").textContent = game.foe.a.emoji;
+    $("#foe-name").textContent = game.foe.a.name + (s.boss ? " (보스)" : "");
+
+    drawBars();
+    setButtons(true);   // 이전 판에서 잠갔던 버튼을 다시 열어 준다
+    show("#s-battle", s.bg);
+
+    var intro = s.name + "에서 " + J(game.foe.a.name, "을") + " 만났어요!";
+    setMsg((s.boss ? "🔥 마지막 상대! " : "👋 ") + intro + "\n" + (s.boss ? "조심해요!" : "공격 버튼을 눌러요!"));
+    say(intro);
+
+    bgmStart(baseTempo());
+    if (s.boss) { flash("#ffb36b"); bigText("🔥 보스 등장!"); shake(); }
+    startTurnTimer();
+  }
+
+  /* =========================================================
+     화면 갱신
+     ========================================================= */
+  function barClass(el, ratio) {
+    el.classList.remove("mid", "low");
+    if (ratio <= 0.3) el.classList.add("low");
+    else if (ratio <= 0.6) el.classList.add("mid");
+  }
+
+  function drawBars() {
+    var mr = Math.max(0, game.me.hp) / game.me.maxHp;
+    var fr = Math.max(0, game.foe.hp) / game.foe.maxHp;
+
+    $("#me-bar").querySelector("i").style.width = (mr * 100) + "%";
+    $("#foe-bar").querySelector("i").style.width = (fr * 100) + "%";
+    $("#me-bar").querySelector("u").style.width = (mr * 100) + "%";    // 잔상이 늦게 따라온다
+    $("#foe-bar").querySelector("u").style.width = (fr * 100) + "%";
+    barClass($("#me-bar"), mr);
+    barClass($("#foe-bar"), fr);
+
+    setDanger(mr <= 0.3 && game.me.hp > 0);
+
+    var warned = game.foeGauge >= 70;
+    if (warned && !game.warned) { game.warned = true; SFX.warn(); say("조심해요! 큰 공격이 와요!"); }
+    if (!warned) game.warned = false;
+    $("#foe-warn").classList.toggle("on", warned);
+    $("#f-foe").classList.toggle("alert", warned);
+
+    $("#me-hp").textContent = Math.max(0, game.me.hp) + " / " + game.me.maxHp;
+    $("#foe-hp").textContent = Math.max(0, game.foe.hp) + " / " + game.foe.maxHp;
+
+    $("#me-gauge").querySelector("i").style.width = game.gauge + "%";
+    $("#gauge-label").textContent = game.gauge >= 100
+      ? "✨ 필살기 준비 완료! (" + game.me.a.skill + ")"
+      : "필살기 모으는 중… " + game.gauge + "%";
+
+    var snackBtn = document.querySelector('[data-act="snack"]');
+    snackBtn.textContent = "🍎 간식 " + game.snacks;
+    snackBtn.disabled = game.snacks <= 0;
+    document.querySelector('[data-act="special"]').disabled = game.gauge < 100;
+  }
+
+  function setMsg(text) {
+    $("#msg").innerHTML = text.replace(/\n/g, "<br>");
+  }
+
+  function floatNum(which, text, isHeal) {
+    var host = which === "me" ? $("#f-me") : $("#f-foe");
+    var el = document.createElement("div");
+    el.className = "float" + (isHeal ? " heal" : "");
+    el.textContent = text;
+    host.appendChild(el);
+    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 1000);
+  }
+
+  function anim(el, cls, ms) {
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+    setTimeout(function () { el.classList.remove(cls); }, ms || 500);
+  }
+
+  function setButtons(on) {
+    var btns = document.querySelectorAll("#actions .btn");
+    for (var i = 0; i < btns.length; i++) btns[i].disabled = !on;
+    if (on) drawBars();
+  }
+
+  /* =========================================================
+     연출 — 흔들림, 번쩍임, 큰 글씨, 불꽃, 진동
+     ========================================================= */
+  function shake() { anim($("#app"), "shake", 430); }
+
+  function flash(color) {
+    var el = $("#flash");
+    el.style.background = color || "#fff";
+    el.classList.remove("go");
+    void el.offsetWidth;
+    el.classList.add("go");
+  }
+
+  function bigText(text) {
+    var el = $("#bigtext");
+    el.innerHTML = text.replace(/\n/g, "<br>");
+    el.classList.remove("go");
+    void el.offsetWidth;
+    el.classList.add("go");
+  }
+
+  function buzz(pattern) {
+    try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {}
+  }
+
+  function sparks(which, chars) {
+    var host = which === "me" ? $("#f-me") : $("#f-foe");
+    for (var i = 0; i < 6; i++) {
+      var el = document.createElement("div");
+      el.className = "spark";
+      el.textContent = chars[rnd(chars.length)];
+      el.style.left = (28 + rnd(52)) + "%";
+      el.style.top = "18%";
+      el.style.setProperty("--dx", (-72 + rnd(144)) + "px");
+      el.style.setProperty("--dy", (-40 - rnd(70)) + "px");
+      host.appendChild(el);
+      (function (e) {
+        setTimeout(function () { if (e.parentNode) e.parentNode.removeChild(e); }, 660);
+      })(el);
+    }
+  }
+
+  function baseTempo() {
+    return STAGES[game.stage] && STAGES[game.stage].boss ? 140 : 104 + game.stage * 7;
+  }
+
+  /* 체력이 위험하면 화면이 빨갛게 뛰고 비트가 빨라진다 */
+  function setDanger(on) {
+    if (game.danger === on) return;
+    game.danger = on;
+    $("#vignette").classList.toggle("danger", on);
+    if (bgm.timer) bgmStart(on ? Math.round(baseTempo() * 1.3) : baseTempo());
+  }
+
+  function updateCombo() {
+    var el = $("#combo");
+    if (game.combo >= 2) {
+      el.textContent = "🔥 " + game.combo + "연속!";
+      el.classList.add("on");
+      el.classList.remove("hit");
+      void el.offsetWidth;
+      el.classList.add("hit");
+    } else {
+      el.classList.remove("on", "hit");
+    }
+  }
+
+  /* =========================================================
+     타이밍 액션 — 커서가 노란 칸에 있을 때 탁!
+     ========================================================= */
+  function timingChallenge(label, speedMul) {
+    return new Promise(function (resolve) {
+      var wrap = $("#timing"), cur = $("#tcursor");
+      $("#tlabel").textContent = label;
+      wrap.classList.add("on");
+
+      var pos = rnd(20), dir = 1, last = performance.now(), t0 = last, raf = null, done = false;
+      var limit = save.rush ? 3200 : 4800;
+      var speed = (save.rush ? 0.085 : 0.06) * speedMul;   // 1ms 당 움직이는 %
+
+      function judge() {
+        var d = Math.abs(pos - 50);
+        if (d <= 7) return "perfect";
+        if (d <= 20) return "good";
+        return "miss";
+      }
+
+      function finish(grade) {
+        if (done) return;
+        done = true;
+        if (raf) cancelAnimationFrame(raf);
+        wrap.classList.remove("on");
+        wrap.onpointerdown = null;
+        document.onkeydown = null;
+        resolve(grade);
+      }
+
+      function frame(t) {
+        var dt = Math.min(48, t - last);
+        last = t;
+        pos += dir * speed * dt;
+        if (pos >= 100) { pos = 100; dir = -1; }
+        if (pos <= 0) { pos = 0; dir = 1; }
+        cur.style.left = pos + "%";
+        if (t - t0 > limit) { finish("timeout"); return; }
+        raf = requestAnimationFrame(frame);
+      }
+
+      // 버튼을 두 번 톡톡 누른 게 곧바로 판정되지 않도록 아주 짧게 무시한다
+      function tapped() { return performance.now() - t0 > 220; }
+
+      wrap.onpointerdown = function (e) { e.preventDefault(); if (tapped()) finish(judge()); };
+      document.onkeydown = function (e) {
+        if (e.key === " " || e.key === "Enter") { e.preventDefault(); if (tapped()) finish(judge()); }
+      };
+      raf = requestAnimationFrame(frame);
+    });
+  }
+
+  /* =========================================================
+     턴 제한시간 — 시간이 다 되면 상대가 먼저 친다
+     ========================================================= */
+  var turnTimer = { raf: null, lastSec: -1 };
+
+  function clearTurnTimer() {
+    if (turnTimer.raf) cancelAnimationFrame(turnTimer.raf);
+    turnTimer.raf = null;
+    var tb = $("#turnbar");
+    if (tb) {
+      tb.classList.remove("hot");
+      tb.querySelector("i").style.width = "100%";
+    }
+  }
+
+  function startTurnTimer() {
+    clearTurnTimer();
+    var tb = $("#turnbar");
+    if (!save.rush) { tb.classList.add("off"); return; }
+    tb.classList.remove("off");
+
+    var total = Math.max(4500, 8000 - game.stage * 700);   // 1단계 8초 → 5단계 4.5초
+    var t0 = performance.now();
+    turnTimer.lastSec = -1;
+
+    function step(t) {
+      var left = total - (t - t0);
+      tb.querySelector("i").style.width = Math.max(0, (left / total) * 100) + "%";
+      if (left <= 3000) {
+        tb.classList.add("hot");
+        var sec = Math.ceil(left / 1000);
+        if (sec !== turnTimer.lastSec) {
+          turnTimer.lastSec = sec;
+          if (sec > 0) SFX.tick();
+        }
+      }
+      if (left <= 0) { turnTimer.raf = null; doTurn("panic"); return; }
+      turnTimer.raf = requestAnimationFrame(step);
+    }
+    turnTimer.raf = requestAnimationFrame(step);
+  }
+
+  /* =========================================================
+     전투 진행
+     ========================================================= */
+  document.querySelectorAll("#actions .btn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (game.busy) return;
+      doTurn(b.getAttribute("data-act"));
+    });
+  });
+
+  function addGauge(n) {
+    game.gauge = Math.min(100, game.gauge + n);
+  }
+
+  var GRADE = {
+    perfect: { mult: 2.0, gauge: 34, label: "⭐ 완벽해!", spMult: 1.4, voice: "완벽해!" },
+    good:    { mult: 1.35, gauge: 27, label: "👍 좋았어!", spMult: 1.15, voice: "좋았어!" },
+    miss:    { mult: 0.8, gauge: 18, label: "😖 아깝다!", spMult: 0.9, voice: "아깝다!" },
+    timeout: { mult: 0.5, gauge: 12, label: "⌛ 늦었다!", spMult: 0.75, voice: "늦었어!" }
+  };
+
+  async function doTurn(act) {
+    if (game.busy) return;
+    game.busy = true;
+    clearTurnTimer();
+    setButtons(false);
+    game.guarding = false;
+
+    if (act === "attack" || act === "special") {
+      var isSp = act === "special";
+      if (isSp && game.gauge < 100) { endTurnInput(); return; }
+
+      if (isSp) {
+        game.gauge = 0;
+        SFX.special();
+        flash("#ffe680");
+        bigText("✨ " + game.me.a.skill + " ✨");
+        anim($("#me-face"), "charge", 700);
+        setMsg("✨✨ " + game.me.a.name + "의 필살기 준비!\n타이밍을 맞춰 발사! ✨✨");
+        say("필살기, " + game.me.a.skill);
+        await sleep(620);
+      }
+
+      var grade = await timingChallenge(
+        isSp ? "필살기 발사! 지금!" : "지금이야! 탁!",
+        1 + game.stage * 0.16
+      );
+      var g = GRADE[grade];
+
+      if (grade === "perfect" || grade === "good") game.combo++;
+      else game.combo = 0;
+      updateCombo();
+
+      var comboMul = game.combo >= 2 ? 1 + Math.min(0.5, 0.12 * (game.combo - 1)) : 1;
+      var base = isSp ? Math.round(game.me.atk * 2.3) + rnd(6) : game.me.atk + 2 + rnd(4);
+      var dmg = Math.max(1, Math.round(base * (isSp ? g.spMult : g.mult) * comboMul));
+
+      if (grade === "perfect") { SFX.perfect(); flash("#fff3b0"); }
+      else if (grade === "miss" || grade === "timeout") SFX.miss();
+
+      bigText(g.label + (game.combo >= 2 ? "\n🔥 " + game.combo + "연속!" : ""));
+      anim($("#me-face"), "lunge-up", 420);
+      await sleep(190);
+      hurt("foe", dmg, isSp || grade === "perfect");
+      if (!isSp) addGauge(g.gauge);
+
+      setMsg(g.label + " " + game.me.a.name + (isSp ? "의 " + game.me.a.skill + "!" : "의 공격!") +
+        "\n" + game.foe.a.name + "에게 " + dmg + " 아프게 했어요!");
+      say(g.voice);
+
+    } else if (act === "panic") {
+      game.combo = 0;
+      updateCombo();
+      SFX.miss();
+      buzz([20, 40, 20]);
+      bigText("⌛ 시간 초과!");
+      var pd = Math.max(1, Math.round((game.me.atk + 2) * 0.5));
+      setMsg("⌛ 시간이 다 됐어요!\n허둥지둥 공격했어요…");
+      say("앗, 시간이 다 됐어!");
+      anim($("#me-face"), "lunge-up", 420);
+      await sleep(190);
+      hurt("foe", pd, false);
+      addGauge(10);
+
+    } else if (act === "guard") {
+      game.guarding = true;
+      addGauge(18);
+      SFX.guard();
+      flash("#bfe6ff");
+      anim($("#me-face"), "charge", 700);
+      setMsg("🛡️ " + J(game.me.a.name, "이") + " 단단하게 막을 준비!\n이번엔 조금만 아파요.");
+      say("방어!");
+      await sleep(380);
+
+    } else if (act === "snack") {
+      if (game.snacks <= 0) { endTurnInput(); return; }
+      game.snacks--;
+      var heal = Math.round(game.me.maxHp * 0.30);
+      game.me.hp = Math.min(game.me.maxHp, game.me.hp + heal);
+      addGauge(14);
+      SFX.heal();
+      anim($("#me-face"), "charge", 700);
+      floatNum("me", "+" + heal, true);
+      drawBars();
+      setMsg("🍎 냠냠! 힘이 났어요!\n체력이 " + heal + " 회복됐어요!");
+      say("냠냠, 힘이 났어요");
+      await sleep(520);
+    }
+
+    drawBars();
+    await sleep(380);
+
+    if (game.foe.hp <= 0) { await endBattle(true); return; }
+
+    await foeTurn();
+
+    if (game.me.hp <= 0) { await endBattle(false); return; }
+
+    endTurnInput();
+  }
+
+  /* 다시 아이의 차례로 — 버튼을 열고 제한시간을 다시 돌린다 */
+  function endTurnInput() {
+    game.busy = false;
+    setButtons(true);
+    startTurnTimer();
+  }
+
+  async function foeTurn() {
+    game.foeGauge = Math.min(100, game.foeGauge + 22 + rnd(8));
+    var useSpecial = game.foeGauge >= 100;
+
+    setMsg("😾 " + game.foe.a.name + "의 차례!");
+    await sleep(400);
+
+    var dmg;
+    if (useSpecial) {
+      game.foeGauge = 0;
+      SFX.special();
+      flash("#ff9a9a");
+      bigText("⚡ 위험!");
+      shake();
+      anim($("#foe-face"), "charge", 700);
+      setMsg("⚡⚡ " + game.foe.a.name + "의 " + game.foe.a.skill + "!");
+      say("위험해!");
+      await sleep(560);
+      dmg = Math.round(game.foe.atk * 1.4) + rnd(4);
+    } else {
+      dmg = Math.round(game.foe.atk * 0.78) + rnd(5) - 2;
+    }
+
+    anim($("#foe-face"), "lunge-down", 420);
+    await sleep(220);
+
+    // 빠른 동물은 가끔 휙 피한다 (독수리 35%, 고래 14%)
+    if (Math.random() < game.me.a.spd * 0.035) {
+      SFX.dodge();
+      bigText("🌀 휙!");
+      anim($("#me-face"), "dodgemove", 520);
+      setMsg("🌀 휙! " + J(game.me.a.name, "이") + " 재빠르게 피했어요!\n하나도 안 아파요!");
+      say("휙! 피했어요!");
+      drawBars();
+      await sleep(600);
+      return;
+    }
+
+    var blocked = false;
+    if (game.guarding) { dmg = Math.max(1, Math.round(dmg * 0.4)); blocked = true; }
+
+    if (blocked) { SFX.guard(); bigText("🛡️ 막았다!"); }
+    hurt("me", dmg, useSpecial && !blocked);
+    setMsg((blocked ? "🛡️ 막았다! " : "💢 ") + game.foe.a.name + "의 공격!\n" +
+      J(nick(save.name), "이") + " " + dmg + " 아팠어요." + (blocked ? " (많이 줄었어요)" : ""));
+    if (blocked) say("잘 막았어요!");
+
+    drawBars();
+    await sleep(520);
+  }
+
+  function hurt(who, dmg, strong) {
+    var target = who === "me" ? game.me : game.foe;
+    target.hp = Math.max(0, target.hp - dmg);
+
+    SFX.hit();
+    shake();
+    flash(who === "me" ? "#ff7a7a" : "#ffffff");
+    buzz(strong ? [40, 30, 60] : [26]);
+    sparks(who, strong ? ["💥", "⚡", "✨", "💫"] : ["💥", "✨"]);
+
+    var faceEl = who === "me" ? $("#me-face") : $("#foe-face");
+    var boxEl = who === "me" ? $("#f-me") : $("#f-foe");
+    anim(faceEl, "flash", 400);
+    anim(boxEl, "hitting", 400);
+    floatNum(who, "-" + dmg, false);
+    drawBars();
+
+    // 상대가 거의 쓰러졌을 때 한 번만 응원한다
+    if (who === "foe" && !game.nearly && game.foe.hp > 0 && game.foe.hp / game.foe.maxHp <= 0.25) {
+      game.nearly = true;
+      bigText("한 방 더!");
+      say("한 방만 더!");
+    }
+  }
+
+  /* =========================================================
+     결과 화면
+     ========================================================= */
+  function ladderHtml(clearedCount) {
+    var html = "";
+    for (var i = 0; i < STAGES.length; i++) {
+      var cls = i < clearedCount ? "step done" : (i === clearedCount ? "step now" : "step");
+      html += '<div class="' + cls + '">' + (i < clearedCount ? "⭐" : STAGES[i].emoji) + "</div>";
+    }
+    return html;
+  }
+
+  async function endBattle(won) {
+    game.busy = true;
+    clearTurnTimer();
+    setButtons(false);
+    $("#combo").classList.remove("on");
+    $("#foe-warn").classList.remove("on");
+    $("#f-foe").classList.remove("alert");
+
+    if (won) {
+      bgmStop();
+      SFX.ko();
+      flash("#ffffff");
+      shake();
+      bigText("K.O!");
+      buzz([60, 40, 80]);
+      $("#foe-face").classList.add("ko-fly");
+      await sleep(950);
+      $("#foe-face").classList.remove("ko-fly");
+    } else {
+      bgmStop();
+      await sleep(400);
+    }
+    setDanger(false);
+
+    if (won) {
+      SFX.win();
+      // 도감에 상대 동물 등록
+      if (save.dex.indexOf(game.foe.a.id) === -1) {
+        save.dex.push(game.foe.a.id);
+      }
+      if (save.dex.indexOf(game.me.a.id) === -1) {
+        save.dex.push(game.me.a.id);
+      }
+      game.stage++;
+
+      var last = game.stage >= STAGES.length;
+      if (last) save.champion++;
+      persist();
+
+      var hpLeft = game.me.hp / game.me.maxHp;
+      var starCount = hpLeft > 0.6 ? 3 : (hpLeft > 0.3 ? 2 : 1);
+
+      $("#r-face").textContent = last ? "🏆" : game.me.a.emoji;
+      $("#r-title").textContent = last ? nick(save.name) + " 챔피언!" : "이겼다! 🎉";
+      $("#r-stars").textContent = "⭐".repeat(starCount) + "☆".repeat(3 - starCount);
+      $("#r-desc").innerHTML = last
+        ? "5마리를 모두 이겼어요!<br>" + J(game.me.a.name, "와") + " " + J(nick(save.name), "은") + " 최고의 짝꿍! 🥇"
+        : J(game.foe.a.name, "을") + " 이겼어요!<br>다음은 " + STAGES[game.stage].emoji + " " + STAGES[game.stage].name + "!";
+      $("#r-ladder").innerHTML = ladderHtml(game.stage);
+      $("#r-main").textContent = last ? "🎮 처음부터 다시!" : "다음 단계로 ▶";
+      $("#r-main").className = "btn";
+
+      show("#s-result", last ? "linear-gradient(160deg,#ffd76e 0%,#ff8a3d 100%)" : "linear-gradient(160deg,#8fe3a5 0%,#2fa36a 100%)");
+      confetti(last ? 160 : 80);
+      say(last ? nick(save.name) + " 챔피언! 정말 잘했어요!" : "이겼다! 잘했어요!");
+      $("#r-main").onclick = function () {
+        SFX.tap();
+        if (last) { game.stage = 0; buildPick(); show("#s-pick", HOME_BG); }
+        else startStage();
+      };
+
+    } else {
+      SFX.lose();
+      persist();
+      $("#r-face").textContent = "🤕";
+      $("#r-title").textContent = "아쉬워요!";
+      $("#r-stars").textContent = "💪💪💪";
+      $("#r-desc").innerHTML = "괜찮아요, " + nick(save.name) + "! 다시 하면 돼요.<br>이번엔 🛡️ 방어와 🍎 간식을 써 봐요!";
+      $("#r-ladder").innerHTML = ladderHtml(game.stage);
+      $("#r-main").textContent = "🔁 다시 도전!";
+      $("#r-main").className = "btn green";
+      show("#s-result", "linear-gradient(160deg,#b7b7d8 0%,#5a5a86 100%)");
+      say("괜찮아요. 다시 해 봐요!");
+      $("#r-main").onclick = function () { SFX.tap(); startStage(); };
+    }
+  }
+
+  $("#r-home").addEventListener("click", function () {
+    SFX.tap();
+    refreshHome();
+    show("#s-home", HOME_BG);
+  });
+
+  /* =========================================================
+     도감
+     ========================================================= */
+  function buildDex() {
+    var grid = $("#dex-grid");
+    grid.innerHTML = "";
+    $("#dex-count").textContent = "모은 동물 " + save.dex.length + " / " + ANIMALS.length + "마리";
+
+    ANIMALS.forEach(function (a) {
+      var got = save.dex.indexOf(a.id) !== -1;
+      var el = document.createElement("div");
+      el.className = "acard" + (got ? "" : " locked");
+      el.innerHTML =
+        '<div class="face">' + (got ? a.emoji : "❔") + "</div>" +
+        '<div class="nm">' + (got ? a.name : "???") + "</div>" +
+        '<div class="st">' + (got ? "✨ " + a.skill : "만나면 열려요") + "</div>";
+      if (got) {
+        el.addEventListener("click", function () { SFX.tap(); say(a.name + ". 필살기는 " + a.skill); });
+      }
+      grid.appendChild(el);
+    });
+  }
+
+  /* =========================================================
+     색종이 효과
+     ========================================================= */
+  var cvs = $("#confetti");
+  var ctx = cvs.getContext("2d");
+  var pieces = [];
+  var rafId = null;
+
+  function sizeCanvas() {
+    cvs.width = window.innerWidth;
+    cvs.height = window.innerHeight;
+  }
+  sizeCanvas();
+  window.addEventListener("resize", sizeCanvas);
+
+  function confetti(count) {
+    var colors = ["#ffd23f", "#ff8fb1", "#64b5ff", "#7ede8a", "#c58cff", "#fff"];
+    for (var i = 0; i < count; i++) {
+      pieces.push({
+        x: Math.random() * cvs.width,
+        y: -20 - Math.random() * cvs.height * 0.5,
+        w: 6 + Math.random() * 8,
+        h: 8 + Math.random() * 10,
+        vy: 2 + Math.random() * 3.5,
+        vx: -1.5 + Math.random() * 3,
+        rot: Math.random() * Math.PI,
+        vr: -0.15 + Math.random() * 0.3,
+        c: colors[rnd(colors.length)]
+      });
+    }
+    if (!rafId) rafId = requestAnimationFrame(tick);
+  }
+
+  function tick() {
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+    for (var i = pieces.length - 1; i >= 0; i--) {
+      var p = pieces[i];
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.c;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+      if (p.y > cvs.height + 30) pieces.splice(i, 1);
+    }
+    if (pieces.length) rafId = requestAnimationFrame(tick);
+    else { rafId = null; ctx.clearRect(0, 0, cvs.width, cvs.height); }
+  }
+
+  /* =========================================================
+     시작
+     ========================================================= */
+  loadSave();
+  refreshHome();
+  stageEl.style.background = HOME_BG;
+
+  /* 홈 화면에 추가 — 안드로이드/크롬은 버튼, 아이패드/아이폰은 안내 문구 */
+  var installEvent = null;
+
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    installEvent = e;
+    $("#btn-install").hidden = false;
+  });
+
+  $("#btn-install").addEventListener("click", function () {
+    if (!installEvent) return;
+    SFX.tap();
+    installEvent.prompt();
+    installEvent.userChoice.then(function () {
+      installEvent = null;
+      $("#btn-install").hidden = true;
+    });
+  });
+
+  window.addEventListener("appinstalled", function () {
+    installEvent = null;
+    $("#btn-install").hidden = true;
+    $("#install-tip").hidden = true;
+  });
+
+  (function installHint() {
+    var ua = navigator.userAgent || "";
+    var isApple = /iPad|iPhone|iPod/.test(ua) || (ua.indexOf("Macintosh") !== -1 && "ontouchend" in document);
+    var installed = navigator.standalone === true ||
+      (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+    if (installed || !isApple) return;
+    var tip = $("#install-tip");
+    tip.textContent = "📱 공유 버튼 → \"홈 화면에 추가\" 를 누르면 앱처럼 쓸 수 있어요";
+    tip.hidden = false;
+  })();
+
+  // 오프라인에서도 열리도록 서비스워커를 등록한다
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("./sw.js").catch(function () {});
+    });
+  }
+
+  // 첫 터치에서 오디오를 깨운다 (모바일 정책)
+  document.addEventListener("touchstart", function once() {
+    audio();
+    document.removeEventListener("touchstart", once);
+  }, { passive: true });
+})();
+</script>
+</body>
+</html>
