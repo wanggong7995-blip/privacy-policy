@@ -32,7 +32,7 @@ https://wanggong7995-blip.github.io/privacy-policy/animal-battle.html
 | `battle-icon-maskable-512.png` | 안드로이드 원형/모서리 마스크용 (안전영역 적용) |
 | `battle-apple-touch-icon.png` | 아이패드·아이폰 홈 화면 아이콘 |
 
-아이콘은 `animal-battle.webmanifest` 에 연결되어 있고, 오프라인 캐시는 `sw.js` 가 마음돌봄 워크북과 함께 담당합니다.
+아이콘은 `animal-battle.webmanifest` 에 연결되어 있고, 오프라인 캐시는 사이트 공용 서비스워커 `sw.js` 가 담당합니다. (이 저장소의 웹앱들이 하나의 서비스워커를 함께 씁니다 — 자세한 이유는 `sw.js` 상단 주석 참고)
 
 ## 게임 방법
 
