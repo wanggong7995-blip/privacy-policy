@@ -280,6 +280,12 @@
   .tzone { position: absolute; top: 0; bottom: 0; }
   .tzone.good { background: #35b866; }
   .tzone.perfect { background: #ffd23f; }
+  .tmark {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    font-size: 17px; font-weight: 900; color: #6b4a00; pointer-events: none; z-index: 2;
+  }
+  .tbar.hot { box-shadow: 0 0 0 6px rgba(255,210,63,0.9), 0 10px 28px rgba(0,0,0,0.45); }
+  .tbar.hot .tzone.perfect { filter: brightness(1.25); }
   .tcursor {
     position: absolute; top: -8px; bottom: -8px; width: 16px; margin-left: -8px;
     background: #ff1f6b; border: 3px solid #fff; border-radius: 9px;
@@ -360,8 +366,9 @@
 <div id="timing">
   <div class="tlabel" id="tlabel">지금이야!</div>
   <div class="tbar" id="tbar">
-    <div class="tzone good" style="left:30%; width:40%"></div>
-    <div class="tzone perfect" style="left:43%; width:14%"></div>
+    <div class="tzone good" id="tzone-good"></div>
+    <div class="tzone perfect" id="tzone-perfect"></div>
+    <div class="tmark" id="tmark">여기!</div>
     <div class="tcursor" id="tcursor" style="left:0%"></div>
   </div>
   <div class="tsub">👆 아무 데나 눌러요 · 🟡 노란 칸이면 <b>완벽!</b></div>
@@ -385,7 +392,7 @@
       <div class="toggles">
         <button class="toggle on" id="t-sound">🔊 소리 켬</button>
         <button class="toggle on" id="t-voice">🗣️ 읽어줌</button>
-        <button class="toggle on" id="t-rush">⏱️ 두근두근</button>
+        <button class="toggle on" id="t-mode">🐣 쉬움</button>
       </div>
     </div>
 
@@ -483,17 +490,19 @@
     <div class="panel" style="font-size:17px; font-weight:700; line-height:1.9;">
       1️⃣ 좋아하는 동물을 골라요.<br>
       2️⃣ <b>👊 공격</b> 을 누르면 막대가 나와요.<br>
-      3️⃣ 하얀 막대가 <b>🟡 노란 칸</b> 에 왔을 때 화면을 <b>탁!</b><br>
+      3️⃣ 분홍 막대가 <b>🟡 노란 칸</b> 에 오면 반짝! 그때 화면을 <b>탁!</b><br>
+      　 (노란 칸 근처에서는 막대가 느려져요)<br>
       　 → ⭐ 완벽하면 두 배로 아프게 해요!<br>
       4️⃣ 연속으로 성공하면 <b>🔥 콤보</b> 로 더 세져요.<br>
-      5️⃣ 위에 있는 시간 막대가 사라지기 전에 눌러요. ⏱️<br>
+      5️⃣ 두 번 놓치면 막대가 더 느려져요. 걱정 마세요!<br>
       6️⃣ 상대가 <b>⚠️ 큰 공격</b> 을 준비하면 <b>🛡️ 방어</b>!<br>
       7️⃣ 파란 막대가 가득 차면 <b>💥 필살기</b>!<br>
       8️⃣ 힘들면 <b>🍎 간식</b> 을 먹어요. (한 판에 3번)<br>
       9️⃣ 🌀 빠른 동물은 공격을 <b>휙 피해요</b>!<br>
       🔟 5마리를 모두 이기면 <b>🏆 챔피언</b>!<br><br>
       🌟 져도 괜찮아요. 다시 하면 돼요!<br>
-      🐢 시간이 부담되면 홈에서 <b>천천히</b> 로 바꿀 수 있어요.
+      🐣 홈에서 <b>쉬움 / 보통</b> 을 고를 수 있어요.<br>
+      　 쉬움: 막대가 느리고 노란 칸이 넓어요. 시간 제한도 없어요.
     </div>
     <div style="flex:1"></div>
     <button class="btn blue" id="how-back">🏠 처음으로</button>
@@ -550,7 +559,7 @@
      저장 데이터
      ========================================================= */
   var SAVE_KEY = "animal-battle-v1";
-  var save = { name: "동현", sound: true, voice: true, rush: true, champion: 0, dex: [] };
+  var save = { name: "동현", sound: true, voice: true, easy: true, champion: 0, dex: [] };
 
   function loadSave() {
     try {
@@ -561,7 +570,9 @@
           if (typeof d.name === "string" && d.name.trim()) save.name = d.name.trim();
           if (typeof d.sound === "boolean") save.sound = d.sound;
           if (typeof d.voice === "boolean") save.voice = d.voice;
-          if (typeof d.rush === "boolean") save.rush = d.rush;
+          if (typeof d.easy === "boolean") save.easy = d.easy;
+          // 예전 "천천히" 설정을 쓰던 기기는 쉬움 모드로 옮겨 준다
+          else if (typeof d.rush === "boolean") save.easy = !d.rush;
           if (typeof d.champion === "number") save.champion = d.champion;
           if (Array.isArray(d.dex)) save.dex = d.dex;
         }
@@ -716,7 +727,9 @@
     foeGauge: 0,
     combo: 0,
     danger: false,
-    nearly: false
+    nearly: false,
+    assist: 0,
+    missStreak: 0
   };
 
   function rnd(n) { return Math.floor(Math.random() * n); }
@@ -754,8 +767,8 @@
     $("#t-sound").textContent = save.sound ? "🔊 소리 켬" : "🔈 소리 끔";
     $("#t-voice").classList.toggle("on", save.voice);
     $("#t-voice").textContent = save.voice ? "🗣️ 읽어줌" : "🤫 안 읽음";
-    $("#t-rush").classList.toggle("on", save.rush);
-    $("#t-rush").textContent = save.rush ? "⏱️ 두근두근" : "🐢 천천히";
+    $("#t-mode").classList.toggle("on", save.easy);
+    $("#t-mode").textContent = save.easy ? "🐣 쉬움" : "⚡ 보통";
   }
 
   $("#playerName").addEventListener("input", function () {
@@ -775,9 +788,9 @@
     else if ("speechSynthesis" in window) { try { speechSynthesis.cancel(); } catch (e) {} }
   });
 
-  $("#t-rush").addEventListener("click", function () {
-    save.rush = !save.rush; persist(); refreshHome(); SFX.tap();
-    say(save.rush ? "두근두근 모드! 시간 안에 눌러요" : "천천히 모드! 시간 제한이 없어요");
+  $("#t-mode").addEventListener("click", function () {
+    save.easy = !save.easy; persist(); refreshHome(); SFX.tap();
+    say(save.easy ? "쉬움 모드! 막대가 천천히 움직여요" : "보통 모드! 조금 빨라져요");
   });
 
   $("#btn-start").addEventListener("click", function () {
@@ -881,6 +894,8 @@
     game.nearly = false;
     game.danger = false;
     game.warned = false;
+    game.assist = 0;
+    game.missStreak = 0;
     $("#vignette").classList.remove("danger");
     $("#foe-warn").classList.remove("on");
     $("#f-foe").classList.remove("alert");
@@ -1043,21 +1058,43 @@
 
   /* =========================================================
      타이밍 액션 — 커서가 노란 칸에 있을 때 탁!
+
+     6살은 "보고 → 누르기"에 0.4~0.6초가 걸린다. 커서가 계속 같은 속도로
+     달리면 보고 누르는 사이에 노란 칸을 지나쳐 버리므로, 가운데 근처에서
+     커서가 눈에 띄게 느려지게 했다. 아이가 신호를 보고 눌러도 늦지 않는다.
      ========================================================= */
-  function timingChallenge(label, speedMul) {
+  var TIMING = {
+    // v: 1ms 당 움직이는 %, slowZone 안에서는 slowFactor 배로 느려진다
+    easy:   { v: 0.038, perfect: 9,  good: 30, slowZone: 14, slowFactor: 0.58, limit: 6000, stageUp: 0 },
+    normal: { v: 0.055, perfect: 8,  good: 24, slowZone: 12, slowFactor: 0.62, limit: 4500, stageUp: 0.08 }
+  };
+
+  function timingChallenge(label) {
     return new Promise(function (resolve) {
-      var wrap = $("#timing"), cur = $("#tcursor");
+      var cfg = save.easy ? TIMING.easy : TIMING.normal;
+
+      // 연달아 놓치면 그 판에서 막대를 더 느리고 넓게 (자동 도움)
+      var help = game.assist || 0;
+      var perfectHalf = cfg.perfect + help * 4;
+      var goodHalf = cfg.good + help * 4;
+      var speed = cfg.v * (1 + game.stage * cfg.stageUp) * (1 - help * 0.15);
+
+      var wrap = $("#timing"), cur = $("#tcursor"), bar = $("#tbar");
       $("#tlabel").textContent = label;
+      $("#tzone-good").style.left = (50 - goodHalf) + "%";
+      $("#tzone-good").style.width = (goodHalf * 2) + "%";
+      $("#tzone-perfect").style.left = (50 - perfectHalf) + "%";
+      $("#tzone-perfect").style.width = (perfectHalf * 2) + "%";
+      bar.classList.remove("hot");
       wrap.classList.add("on");
 
-      var pos = rnd(20), dir = 1, last = performance.now(), t0 = last, raf = null, done = false;
-      var limit = save.rush ? 3200 : 4800;
-      var speed = (save.rush ? 0.085 : 0.06) * speedMul;   // 1ms 당 움직이는 %
+      var pos = rnd(20), dir = 1, last = performance.now(), t0 = last;
+      var raf = null, done = false, wasHot = false;
 
       function judge() {
         var d = Math.abs(pos - 50);
-        if (d <= 7) return "perfect";
-        if (d <= 20) return "good";
+        if (d <= perfectHalf) return "perfect";
+        if (d <= goodHalf) return "good";
         return "miss";
       }
 
@@ -1065,6 +1102,7 @@
         if (done) return;
         done = true;
         if (raf) cancelAnimationFrame(raf);
+        bar.classList.remove("hot");
         wrap.classList.remove("on");
         wrap.onpointerdown = null;
         document.onkeydown = null;
@@ -1074,11 +1112,22 @@
       function frame(t) {
         var dt = Math.min(48, t - last);
         last = t;
-        pos += dir * speed * dt;
+        // 노란 칸 근처에서는 커서가 느려진다
+        var near = Math.abs(pos - 50) <= cfg.slowZone;
+        pos += dir * speed * (near ? cfg.slowFactor : 1) * dt;
         if (pos >= 100) { pos = 100; dir = -1; }
         if (pos <= 0) { pos = 0; dir = 1; }
         cur.style.left = pos + "%";
-        if (t - t0 > limit) { finish("timeout"); return; }
+
+        // 노란 칸에 들어오면 반짝임 + 소리로 "지금!" 을 알려 준다
+        var hot = Math.abs(pos - 50) <= perfectHalf;
+        if (hot !== wasHot) {
+          wasHot = hot;
+          bar.classList.toggle("hot", hot);
+          if (hot) SFX.tick();
+        }
+
+        if (t - t0 > cfg.limit) { finish("timeout"); return; }
         raf = requestAnimationFrame(frame);
       }
 
@@ -1091,6 +1140,22 @@
       };
       raf = requestAnimationFrame(frame);
     });
+  }
+
+  /* 두 번 연달아 놓치면 막대를 더 쉽게 만들어 준다.
+     안내 문구는 판정 문구에 가리지 않도록 호출한 쪽에서 조금 뒤에 보여 준다. */
+  function updateAssist(grade) {
+    if (grade === "perfect" || grade === "good") {
+      game.missStreak = 0;
+      return false;
+    }
+    game.missStreak = (game.missStreak || 0) + 1;
+    if (game.missStreak >= 2 && (game.assist || 0) < 2) {
+      game.assist = (game.assist || 0) + 1;
+      game.missStreak = 0;
+      return true;
+    }
+    return false;
   }
 
   /* =========================================================
@@ -1111,7 +1176,7 @@
   function startTurnTimer() {
     clearTurnTimer();
     var tb = $("#turnbar");
-    if (!save.rush) { tb.classList.add("off"); return; }
+    if (save.easy) { tb.classList.add("off"); return; }
     tb.classList.remove("off");
 
     var total = Math.max(4500, 8000 - game.stage * 700);   // 1단계 8초 → 5단계 4.5초
@@ -1178,11 +1243,9 @@
         await sleep(620);
       }
 
-      var grade = await timingChallenge(
-        isSp ? "필살기 발사! 지금!" : "지금이야! 탁!",
-        1 + game.stage * 0.16
-      );
+      var grade = await timingChallenge(isSp ? "필살기 발사! 지금!" : "지금이야! 탁!");
       var g = GRADE[grade];
+      var helped = updateAssist(grade);
 
       if (grade === "perfect" || grade === "good") game.combo++;
       else game.combo = 0;
@@ -1204,6 +1267,15 @@
       setMsg(g.label + " " + game.me.a.name + (isSp ? "의 " + game.me.a.skill + "!" : "의 공격!") +
         "\n" + game.foe.a.name + "에게 " + dmg + " 아프게 했어요!");
       say(g.voice);
+
+      // 두 번 놓쳤으면 막대를 더 쉽게 바꿨다고 알려 준다
+      if (helped) {
+        await sleep(700);
+        bigText("🐢 천천히 갈게!");
+        setMsg("🐢 괜찮아요!\n다음엔 막대가 더 느리고 노란 칸도 넓어져요.");
+        say("괜찮아요. 천천히 갈게요");
+        await sleep(400);
+      }
 
     } else if (act === "panic") {
       game.combo = 0;
