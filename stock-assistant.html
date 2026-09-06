@@ -761,7 +761,7 @@ if (portfolio.length) refreshQuotes();
 // ─── 서비스워커 등록 ───────────────────────────────────────
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./stock-assistant-sw.js').catch(() => {});
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
   });
 }
 </script>
