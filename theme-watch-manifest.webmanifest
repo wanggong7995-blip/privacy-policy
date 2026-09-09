@@ -1,0 +1,17 @@
+{
+  "name": "테마 감시 리포트",
+  "short_name": "테마감시",
+  "description": "양자·로봇 등 테마별 주식 뉴스와 유튜브를 모아 요약한 브리핑",
+  "lang": "ko",
+  "start_url": "./theme-watch.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f5f7",
+  "theme_color": "#0E7C66",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
