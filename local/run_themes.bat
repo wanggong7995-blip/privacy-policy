@@ -7,6 +7,9 @@ REM 직접 실행해도 된다. 인자는 그대로 전달된다 (예: run_theme
 cd /d "%~dp0.."
 if not exist "local\logs" mkdir "local\logs"
 
+REM 파이썬 출력을 UTF-8로 받아야 로그의 한글이 깨지지 않는다.
+set "PYTHONIOENCODING=utf-8"
+
 set "LOG=local\logs\themes_last_run.log"
 set "HISTORY=local\logs\history.log"
 

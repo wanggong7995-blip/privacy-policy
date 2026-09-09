@@ -336,6 +336,14 @@ def search_youtube(keyword: str, days: int) -> list[Clip]:
     return clips
 
 
+# 등록 채널 필터에서 무시할 낱말. 경제 방송 제목에 늘 붙어 있어서
+# 이걸로 걸러내지 않으면 테마와 무관한 영상이 전부 후보로 들어온다.
+GENERIC_WORDS = {
+    "주가", "주식", "관련주", "종목", "수혜주", "테마주", "시황", "전망",
+    "수출", "수주", "실적", "투자", "증시", "시장", "가격", "수요",
+    "ai", "stock", "stocks", "market", "news", "order", "price", "buy",
+}
+
 _feed_cache: dict[str, tuple[str, list]] = {}
 
 
@@ -369,7 +377,13 @@ def collect_watchlist_clips(theme: Theme, days: int, cache: dict) -> list[Clip]:
     cutoff = datetime.now(KST) - timedelta(days=days)
     lowered = [k.lower() for k in theme.keywords]
     # "양자컴퓨터 주가" 같은 구절은 통째로는 잘 안 걸리므로 낱말로도 본다.
-    words = {w for kw in lowered for w in kw.split() if len(w) >= 2}
+    # 단, '주가'·'관련주' 같은 흔한 낱말로 보면 테마와 무관한 방송이 전부 걸린다.
+    words = {
+        w for kw in lowered for w in kw.split()
+        if len(w) >= 2 and w not in GENERIC_WORDS
+    }
+    if not words:
+        return []
 
     out: list[Clip] = []
     for name, feed_title, videos in watchlist_feeds(cache):
