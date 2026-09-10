@@ -241,6 +241,7 @@ def collect_articles(theme: Theme, days: int, limit: int) -> list[Article]:
 
 
 YT_INITIAL_DATA_RE = re.compile(r"ytInitialData\s*=\s*(\{.*?\})\s*;\s*</script>", re.DOTALL)
+YT_INITIAL_DATA_START_RE = re.compile(r"ytInitialData\s*=\s*\{")
 REL_TIME_RE = re.compile(
     r"(\d+)\s*(초|분|시간|일|주|개월|년|second|minute|hour|day|week|month|year)",
     re.IGNORECASE,
@@ -295,19 +296,69 @@ def _runs_text(node) -> str:
     return ""
 
 
+def extract_initial_data(page: str) -> dict:
+    """검색 결과 페이지에서 ytInitialData JSON을 꺼낸다.
+
+    유튜브는 같은 데이터를 `var ytInitialData = {...};</script>` 로 줄 때도 있고
+    뒤에 다른 코드가 붙은 형태로 줄 때도 있다. 정규식이 빗나가면 중괄호 짝을
+    직접 세어서 잘라낸다.
+    """
+    m = YT_INITIAL_DATA_RE.search(page)
+    if m:
+        try:
+            return json.loads(m.group(1))
+        except json.JSONDecodeError:
+            pass  # 아래 균형 파싱으로 재시도
+
+    start = YT_INITIAL_DATA_START_RE.search(page)
+    if not start:
+        raise RuntimeError("검색 결과에서 ytInitialData 를 찾지 못함 (유튜브 구조 변경 가능)")
+
+    begin = start.end() - 1
+    depth = 0
+    in_string = False
+    escaped = False
+    for i in range(begin, len(page)):
+        ch = page[i]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(page[begin : i + 1])
+                except json.JSONDecodeError as exc:
+                    raise RuntimeError(f"ytInitialData 파싱 실패: {exc}")
+    raise RuntimeError("ytInitialData 의 끝을 찾지 못함")
+
+
 def search_youtube(keyword: str, days: int) -> list[Clip]:
     """유튜브 검색 결과 페이지를 긁는다. 검색용 RSS는 폐지돼서 이 방법을 쓴다."""
     sp = SP_TODAY if days <= 1 else SP_WEEK
     url = YT_SEARCH.format(query=quote_plus(keyword), sp=sp)
-    page = yd.http_get(url, retries=3)
 
-    m = YT_INITIAL_DATA_RE.search(page)
-    if not m:
-        raise RuntimeError("검색 결과에서 ytInitialData 를 찾지 못함 (유튜브 구조 변경 가능)")
-    try:
-        data = json.loads(m.group(1))
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"ytInitialData 파싱 실패: {exc}")
+    # 유튜브가 간헐적으로 데이터 없는 페이지(동의 화면 등)를 주기 때문에 한 번 더 받아본다.
+    data = None
+    last: Optional[Exception] = None
+    for attempt in range(2):
+        page = yd.http_get(url, retries=3)
+        try:
+            data = extract_initial_data(page)
+            break
+        except RuntimeError as exc:
+            last = exc
+    if data is None:
+        raise last or RuntimeError("ytInitialData 를 얻지 못함")
 
     renderers: list = []
     _walk_renderers(data, "videoRenderer", renderers)
@@ -341,6 +392,7 @@ def search_youtube(keyword: str, days: int) -> list[Clip]:
 GENERIC_WORDS = {
     "주가", "주식", "관련주", "종목", "수혜주", "테마주", "시황", "전망",
     "수출", "수주", "실적", "투자", "증시", "시장", "가격", "수요",
+    "시세", "자금", "규제", "법안",
     "ai", "stock", "stocks", "market", "news", "order", "price", "buy",
 }
 
@@ -390,7 +442,9 @@ def collect_watchlist_clips(theme: Theme, days: int, cache: dict) -> list[Clip]:
         for video in videos:
             if video.published < cutoff:
                 continue
-            haystack = f"{video.title}\n{video.description}".lower()
+            # 설명란 뒤쪽은 채널 소개·해시태그 덩어리라 아무 낱말이나 걸린다.
+            # 제목과 설명 앞부분만 본다.
+            haystack = f"{video.title}\n{video.description[:200]}".lower()
             if not any(w in haystack for w in words):
                 continue
             out.append(
