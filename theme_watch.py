@@ -23,6 +23,7 @@ import html
 import json
 import re
 import sys
+import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from datetime import date as Date
@@ -654,18 +655,91 @@ def select_items(claude, theme: Theme, result: ThemeResult, opts: dict, days: in
     log(f"    선별: 기사 {len(result.picked_articles)}건 / 영상 {len(result.picked_clips)}건")
 
 
-def deepen_clips(claude, theme: Theme, result: ThemeResult, opts: dict, model: str):
+# 유튜브가 자막 요청을 막을 때 나오는 표시들. 이런 실패는 잠시 뒤 다시 하면 풀리기도 한다.
+BLOCK_MARKERS = (
+    "blocking requests from your ip",
+    "too many requests",
+    "requestblocked",
+    "ipblocked",
+    "429",
+)
+# 차단으로 판정됐을 때 기다렸다가 다시 시도하는 간격(초).
+TRANSCRIPT_BACKOFF = (10, 30, 60)
+
+
+def _is_block_error(exc: BaseException) -> bool:
+    """IP 차단·레이트리밋인가(재시도할 가치가 있는가), 아니면 그냥 자막 없는 영상인가."""
+    name = type(exc).__name__.lower()
+    if "blocked" in name or "toomanyrequests" in name:
+        return True
+    return any(marker in str(exc).lower() for marker in BLOCK_MARKERS)
+
+
+@dataclass
+class TranscriptGate:
+    """자막 차단이 이어질 때 이번 실행에서 자막 요약을 접을지 판단한다.
+
+    차단된 날에 후보를 전부 붙잡고 재시도하면 시간만 버리고 IP 차단도 더 나빠진다.
+    """
+
+    max_block_streak: int = 2
+    block_streak: int = 0
+    surrendered: bool = False
+
+
+def fetch_transcript_resilient(video_id: str, languages: list[str], gate: TranscriptGate):
+    """자막을 받는다. 차단일 때만 백오프를 두고 다시 시도한다."""
+    last: Optional[BaseException] = None
+    for attempt in range(len(TRANSCRIPT_BACKOFF) + 1):
+        try:
+            got = yd.fetch_transcript(video_id, languages)
+            gate.block_streak = 0
+            return got
+        except Exception as exc:
+            last = exc
+            if not _is_block_error(exc):
+                raise  # 자막이 아예 없는 영상 — 기다려도 달라지지 않는다
+            if attempt < len(TRANSCRIPT_BACKOFF):
+                wait = TRANSCRIPT_BACKOFF[attempt]
+                log(f"      자막 차단 — {wait}초 뒤 재시도 ({attempt + 1}/{len(TRANSCRIPT_BACKOFF)})")
+                time.sleep(wait)
+
+    gate.block_streak += 1
+    if gate.block_streak >= gate.max_block_streak:
+        gate.surrendered = True
+        log(
+            f"      자막 차단이 {gate.block_streak}편 연속입니다. "
+            "이번 실행에서는 자막 요약을 건너뜁니다(브리핑은 기사 기반으로 계속)."
+        )
+    assert last is not None
+    raise last
+
+
+def deepen_clips(
+    claude, theme: Theme, result: ThemeResult, opts: dict, model: str, gate: TranscriptGate
+):
     limit = int(opts.get("deep_videos_per_theme", 2))
     if limit <= 0:
         return
+    if gate.surrendered:
+        log("    자막 차단 상태라 심층요약을 건너뜁니다.")
+        return
     languages = list(opts.get("languages") or ["ko", "ko-KR", "en"])
 
-    for clip in result.picked_clips[:limit]:
+    # 앞 영상이 실패하면 다음 후보로 내려가며 목표 편수를 채운다.
+    extra = int(opts.get("transcript_extra_attempts", 2))
+    done = 0
+    for clip in result.picked_clips[: limit + extra]:
+        if done >= limit or gate.surrendered:
+            break
         try:
-            transcript, label = yd.fetch_transcript(clip.video_id, languages)
+            transcript, label = fetch_transcript_resilient(clip.video_id, languages, gate)
         except Exception as exc:
-            clip.error = f"자막 없음: {type(exc).__name__}"
-            log(f"    [자막 실패] {clip.title[:30]}: {exc}")
+            if _is_block_error(exc):
+                clip.error = "유튜브가 자막 요청을 차단함"
+            else:
+                clip.error = "자막이 없는 영상"
+            log(f"    [자막 실패] {clip.title[:30]}: {clip.error}")
             continue
         clip.transcript_label = label
         body = transcript[: yd.CHUNK_CHARS]
@@ -680,6 +754,7 @@ def deepen_clips(claude, theme: Theme, result: ThemeResult, opts: dict, model: s
                 timeout=420,
                 model=model,
             )
+            done += 1
             log(f"    자막 요약 완료: {clip.title[:30]}")
         except Exception as exc:
             clip.error = f"요약 실패: {exc}"
@@ -958,6 +1033,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     target = Date.fromisoformat(args.date) if args.date else datetime.now(KST).date()
     cache = yd.load_cache()
     results: list[ThemeResult] = []
+    gate = TranscriptGate(max_block_streak=int(opts.get("transcript_block_streak", 2)))
 
     for theme in themes:
         log(f"\n[{theme.name}]")
@@ -977,7 +1053,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         if claude is not None:
             select_items(claude, theme, result, opts, days, model)
             if not args.no_transcript:
-                deepen_clips(claude, theme, result, opts, model)
+                deepen_clips(claude, theme, result, opts, model, gate)
             write_briefing(claude, theme, result, days, model)
 
         results.append(result)

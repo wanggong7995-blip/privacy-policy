@@ -67,6 +67,13 @@ options:
   # 테마 하나당 자막까지 받아 깊게 요약할 영상 수 (0이면 자막 요약 안 함)
   deep_videos_per_theme: 2
 
+  # 자막을 못 받은 영상이 있을 때 다음 후보로 몇 편까지 더 내려가 볼지
+  transcript_extra_attempts: 2
+
+  # 유튜브가 자막을 막는 날: 이만큼 연속으로 차단되면 그 실행의 자막 요약을 접는다.
+  # (기사 기반 브리핑은 그대로 계속된다)
+  transcript_block_streak: 2
+
   # 브리핑에 실을 기사/영상 개수 (Claude가 이 수만큼 고른다)
   news_picks: 5
   video_picks: 3
