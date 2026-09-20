@@ -15,6 +15,9 @@
    (단순 시황 나열, 광고성, 중복 보도는 걸러냅니다)
 4. **심층 요약** — 고른 영상 중 상위 몇 개는 자막을 받아 내용까지 요약합니다.
 5. **브리핑** — 테마별로 "오늘의 핵심 / 정리 / 주목할 종목 / 체크포인트"를 씁니다.
+6. **키포인트** — 테마 브리핑이 다 끝나면 그것들을 한꺼번에 보고, 리포트 맨 앞에
+   "오늘 꼭 볼 것 / 테마를 가로지르는 흐름 / 여러 테마에서 겹친 종목"을 붙입니다.
+   테마 순서가 아니라 **중요도 순으로 재배열**되고, 서로 다른 테마가 같은 방향을 가리키면 그 연결도 짚습니다.
 
 결과는 `themes/YYYY-MM-DD.md` 로 쌓이고, 웹에서는
 <https://wanggong7995-blip.github.io/privacy-policy/theme-watch.html> 로 봅니다.
@@ -35,6 +38,7 @@ python theme_watch.py --dry-run           :: 수집만 확인, 요약 안 함 (�
 python theme_watch.py --themes 양자 로봇   :: 이름에 해당 문자열이 든 테마만
 python theme_watch.py --days-back 3       :: 최근 3일치
 python theme_watch.py --no-transcript     :: 자막 심층요약 생략 (빠름)
+python theme_watch.py --no-keypoints      :: 맨 앞 키포인트 요약 생략
 python theme_watch.py --diagnose          :: 수집기·인증만 점검 (Claude 호출 없음)
 ```
 
@@ -63,6 +67,7 @@ python theme_watch.py --diagnose          :: 수집기·인증만 점검 (Claude
 | `deep_videos_per_theme` | 자막까지 받아 요약할 영상 수 (0이면 안 함) | 2 |
 | `news_picks` / `video_picks` | 브리핑에 실을 기사·영상 개수 | 5 / 3 |
 | `include_watchlist_channels` | 등록 채널에서도 키워드로 찾을지 | true |
+| `keypoints` | 맨 앞 '오늘의 키포인트'를 붙일지 (테마 2개 이상일 때만) | true |
 
 ## 알아둘 것
 
