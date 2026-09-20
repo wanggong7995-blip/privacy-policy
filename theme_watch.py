@@ -568,6 +568,30 @@ BRIEF_PROMPT = """당신은 한국 주식 투자자를 위한 테마 브리핑�
 """
 
 
+KEYPOINTS_PROMPT = """당신은 한국 주식 투자자를 위한 데일리 브리핑의 맨 앞장을 쓰는 편집자입니다.
+아래는 오늘 테마별로 정리된 브리핑들입니다. 최근 {days}일치 자료를 바탕으로 한 것입니다.
+
+이 브리핑들만 근거로, 바쁜 독자가 맨 위에서 30초 안에 읽을 요약을 쓰세요.
+자료에 없는 사실·수치·종목을 지어내지 말고, 투자 권유(사라/팔아라/목표주가)는 쓰지 마세요.
+
+출력 형식(마크다운, 제목 줄은 붙이지 말 것):
+
+**오늘 꼭 볼 것**
+- **[테마이름]** (오늘 가장 중요한 것부터 4~6개. 테마 순서가 아니라 중요도 순으로 재배열할 것.
+  각 항목은 한두 문장으로, 무슨 일이 있었고 왜 중요한지까지 담을 것. 한 테마에서 두 개가 올라와도 되고,
+  특별할 것이 없는 테마는 빠져도 된다.)
+
+**테마를 가로지르는 흐름**
+- (서로 다른 테마에서 같은 방향을 가리키는 신호가 있으면 1~2개. 어느 테마와 어느 테마가 이어지는지 밝힐 것.
+  억지로 엮지 말고, 뚜렷한 연결이 없으면 "오늘은 뚜렷한 교차 흐름이 없습니다."라고만 쓸 것.)
+
+**여러 테마에서 겹친 종목**: (둘 이상의 테마 브리핑에 등장한 기업만 쉼표로. 없으면 "없음")
+
+[테마별 브리핑]
+{briefings}
+"""
+
+
 def _numbered_news(articles: list[Article]) -> str:
     if not articles:
         return "(없음)"
@@ -686,10 +710,59 @@ def write_briefing(claude, theme: Theme, result: ThemeResult, days: int, model: 
         log(f"    [브리핑 실패] {exc}")
 
 
+CORE_RE = re.compile(r"\*\*오늘의 핵심\*\*\s*:?\s*(.+)")
+
+
+def _theme_core(result: ThemeResult) -> str:
+    """브리핑에서 '오늘의 핵심' 한 문장만 뽑는다."""
+    m = CORE_RE.search(result.briefing or "")
+    return m.group(1).strip() if m else ""
+
+
+def fallback_keypoints(results: list[ThemeResult]) -> str:
+    """교차 요약 호출이 실패했을 때 쓰는 기계적 목록."""
+    lines = ["**오늘 꼭 볼 것**", ""]
+    found = False
+    for result in results:
+        core = _theme_core(result)
+        if core:
+            lines.append(f"- **[{result.theme.name}]** {core}")
+            found = True
+    if not found:
+        return ""
+    return "\n".join(lines)
+
+
+def write_keypoints(claude, results: list[ThemeResult], days: int, model: str) -> str:
+    """테마별 브리핑을 한꺼번에 보고 리포트 맨 앞에 붙일 교차 요약을 만든다."""
+    blocks = []
+    for result in results:
+        if not result.briefing:
+            continue
+        blocks.append(f"### {result.theme.name}\n{result.briefing.strip()}")
+    if len(blocks) < 2:
+        return ""
+
+    prompt = KEYPOINTS_PROMPT.format(days=days, briefings="\n\n".join(blocks))
+    try:
+        text = claude.ask(prompt, timeout=420, model=model).strip()
+        log("  키포인트 생성 완료")
+        return text
+    except Exception as exc:
+        log(f"  [키포인트 실패] {exc} → 테마별 핵심 나열로 대체합니다.")
+        return fallback_keypoints(results)
+
+
 # ------------------------------------------------------------------- 결과 출력
 
 
-def render_markdown(target: Date, results: list[ThemeResult], days: int, generated_at: datetime) -> str:
+def render_markdown(
+    target: Date,
+    results: list[ThemeResult],
+    days: int,
+    generated_at: datetime,
+    keypoints: str = "",
+) -> str:
     lines = [
         f"# 테마 감시 리포트 {target.isoformat()}",
         "",
@@ -705,6 +778,9 @@ def render_markdown(target: Date, results: list[ThemeResult], days: int, generat
         "---",
         "",
     ]
+
+    if keypoints:
+        lines += ["## 🔑 오늘의 키포인트", "", keypoints.strip(), "", "---", ""]
 
     for result in results:
         theme = result.theme
@@ -843,6 +919,7 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     p.add_argument("--date", default=None, help="리포트 파일 날짜 (기본: 오늘 KST)")
     p.add_argument("--dry-run", action="store_true", help="수집만 하고 요약은 건너뜀")
     p.add_argument("--no-transcript", action="store_true", help="자막 심층요약 생략")
+    p.add_argument("--no-keypoints", action="store_true", help="맨 앞 키포인트 요약 생략")
     p.add_argument("--diagnose", action="store_true", help="수집기·인증만 점검")
     p.add_argument("--model", default=None)
     return p.parse_args(argv)
@@ -917,10 +994,15 @@ def main(argv: Optional[list[str]] = None) -> int:
                 print(f"  🎬 {clip.title[:70]} — {clip.channel} · {clip.when} [{clip.origin}]")
         return 0
 
+    keypoints = ""
+    if claude is not None and not args.no_keypoints and bool(opts.get("keypoints", True)):
+        keypoints = write_keypoints(claude, results, days, model)
+
     args.out_dir.mkdir(parents=True, exist_ok=True)
     path = args.out_dir / f"{target.isoformat()}.md"
     path.write_text(
-        render_markdown(target, results, days, datetime.now(KST)), encoding="utf-8"
+        render_markdown(target, results, days, datetime.now(KST), keypoints),
+        encoding="utf-8",
     )
     rebuild_index(args.out_dir)
     log(f"\n저장 완료: {path}")

@@ -71,6 +71,10 @@ options:
   news_picks: 5
   video_picks: 3
 
+  # 리포트 맨 앞에 테마별 핵심을 모은 '오늘의 키포인트'를 붙일지.
+  # 테마가 2개 이상일 때만 만들어진다. (호출 1회 추가)
+  keypoints: true
+
   # 이미 등록된 유튜브 채널(youtube_channels.yml)에서도 키워드로 찾을지
   include_watchlist_channels: true
 
