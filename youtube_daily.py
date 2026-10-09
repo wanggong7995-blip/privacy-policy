@@ -680,6 +680,24 @@ def rebuild_index(out_dir: Path) -> None:
     (out_dir / "README.md").write_text("\n".join(lines), encoding="utf-8")
 
 
+def _doc_stats(text: str) -> tuple[int, int]:
+    """(영상 수, 자막 없이 요약된 영상 수)"""
+    return text.count("\n### "), text.count("자막 없음")
+
+
+def _is_downgrade(old_text: str, new_text: str) -> bool:
+    """새 결과가 기존 문서보다 나빠지기만 하는지 본다.
+
+    영상이 더 잡혔으면 새 것을 쓴다. 영상 수가 그대로이거나 줄었는데
+    자막까지 덜 확보했다면 덮어쓰지 않는다.
+    """
+    old_videos, old_missing = _doc_stats(old_text)
+    new_videos, new_missing = _doc_stats(new_text)
+    if new_videos > old_videos:
+        return False
+    return new_missing > old_missing
+
+
 # -------------------------------------------------------------------- 실행
 
 
@@ -1027,9 +1045,18 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     out_path = args.out_dir / f"{target:%Y-%m-%d}.md"
-    out_path.write_text(
-        render_markdown(target, results, datetime.now(KST)), encoding="utf-8"
-    )
+    new_text = render_markdown(target, results, datetime.now(KST))
+
+    # 같은 날짜를 두 번 돌릴 때(보충 실행, --date 소급) 하필 자막이 막혀 있으면
+    # 멀쩡히 만들어 둔 문서가 설명 기반 요약으로 덮어써진다. 나빠지는 경우만 막는다.
+    if out_path.exists() and _is_downgrade(out_path.read_text(encoding="utf-8"), new_text):
+        log(
+            f"\n건너뜀: 기존 {out_path.name} 보다 자막을 덜 확보해 덮어쓰지 않았습니다. "
+            "자막 차단이 풀린 뒤 다시 실행하세요."
+        )
+        return 0
+
+    out_path.write_text(new_text, encoding="utf-8")
     rebuild_index(args.out_dir)
     log(f"\n저장 완료: {out_path}")
 
