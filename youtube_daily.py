@@ -705,16 +705,20 @@ def _doc_stats(text: str) -> tuple[int, int]:
 
 
 def _is_downgrade(old_text: str, new_text: str) -> bool:
-    """새 결과가 기존 문서보다 나빠지기만 하는지 본다.
+    """새 결과가 기존 문서보다 나빠지는지 본다.
 
-    영상이 더 잡혔으면 새 것을 쓴다. 영상 수가 그대로이거나 줄었는데
-    자막까지 덜 확보했다면 덮어쓰지 않는다.
+    자막으로 요약한 영상 수가 줄면 덮어쓰지 않는다. 채널을 추가해 영상 수가
+    늘었더라도, 그때 자막이 막혀 있으면 기존의 자막 기반 요약이 설명 기반으로
+    바뀌므로 영상 수만 보고 판단하면 안 된다. 영상 수가 그대로인데 자막 없는
+    편수만 늘어난 경우도 함께 막는다.
     """
     old_videos, old_missing = _doc_stats(old_text)
     new_videos, new_missing = _doc_stats(new_text)
-    if new_videos > old_videos:
-        return False
-    return new_missing > old_missing
+    old_with = old_videos - old_missing
+    new_with = new_videos - new_missing
+    if new_with < old_with:
+        return True
+    return new_videos <= old_videos and new_missing > old_missing
 
 
 # -------------------------------------------------------------------- 실행
