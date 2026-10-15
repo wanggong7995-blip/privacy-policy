@@ -190,6 +190,25 @@ def load_config(path: Path) -> tuple[list[ChannelSpec], dict]:
 
 CHANNEL_ID_RE = re.compile(r"\b(UC[0-9A-Za-z_-]{22})\b")
 
+# 채널 페이지에는 추천·연관 채널 ID도 섞여 있으므로, 채널 자신의 ID가 들어가는
+# 자리부터 차례로 본다. 어디에도 없을 때만 처음 보이는 ID를 쓴다.
+_ID = r"(UC[0-9A-Za-z_-]{22})"
+CHANNEL_PAGE_PATTERNS = [
+    re.compile(r'<link rel="canonical" href="https://www\.youtube\.com/channel/' + _ID),
+    re.compile(r'"externalId":"' + _ID),
+    re.compile(r'<meta itemprop="identifier" content="' + _ID),
+    re.compile(r'"browseId":"' + _ID),
+]
+
+
+def extract_channel_id(html: str) -> Optional[str]:
+    for pattern in CHANNEL_PAGE_PATTERNS:
+        match = pattern.search(html)
+        if match:
+            return match.group(1)
+    match = CHANNEL_ID_RE.search(html)
+    return match.group(1) if match else None
+
 
 def resolve_channel_id(spec: ChannelSpec, cache: dict) -> str:
     """URL / @핸들 / 채널 ID 중 무엇이 오든 UC... 형태의 채널 ID로 바꾼다."""
@@ -210,12 +229,12 @@ def resolve_channel_id(spec: ChannelSpec, cache: dict) -> str:
         page_url = f"https://www.youtube.com/@{source}"
 
     html = http_get(page_url)
-    match = CHANNEL_ID_RE.search(html)
-    if not match:
+    channel_id = extract_channel_id(html)
+    if not channel_id:
         raise RuntimeError(f"채널 ID를 찾지 못했습니다: {page_url}")
 
-    cache[source] = match.group(1)
-    return match.group(1)
+    cache[source] = channel_id
+    return channel_id
 
 
 # ------------------------------------------------------------------ RSS 수집

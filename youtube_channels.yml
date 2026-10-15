@@ -38,6 +38,9 @@ channels:
   - name: 홍춘욱의 경제강의노트
     id: UCmNbuxmvRVv9OcdAO0cpLnw   # https://www.youtube.com/@chunukhong
 
+  - name: 성상현의 매크로비욘드
+    handle: "@SSH_MacroBeyond"   # 채널 ID는 첫 실행 때 자동으로 찾아 캐시에 저장
+
   # 채널을 더 넣고 싶으면 아래처럼 추가하세요.
   # - name: 슈카월드 코믹스
   #   url: https://www.youtube.com/@syukaworld-comics
